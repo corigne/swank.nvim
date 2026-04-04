@@ -4,6 +4,11 @@ Full reference for `require("swank").setup(opts)`.
 
 All keys are optional. Unset keys keep their default values.
 
+A machine-readable **JSON Schema** is available at
+[`schemas/swank.nvim.json`](https://github.com/corigne/swank.nvim/blob/main/schemas/swank.nvim.json).
+If you use [neoconf.nvim](https://github.com/folke/neoconf.nvim), swank.nvim registers the schema
+automatically during `setup()`, enabling completions and validation in `.neoconf.json`.
+
 ---
 
 ## Full schema with defaults

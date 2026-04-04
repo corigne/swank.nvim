@@ -41,10 +41,26 @@ local default_config = {
 
 M.config = {}
 
+--- Register JSON schema with neoconf.nvim if it is available.
+--- Enables schema-based completions and validation in .neoconf.json and similar files.
+local function register_neoconf_schema()
+  local ok, neoconf = pcall(require, "neoconf.plugins")
+  if not ok then return end
+  neoconf.register({
+    name = "swank.nvim",
+    schema = vim.fn.fnamemodify(
+      vim.api.nvim_get_runtime_file("schemas/swank.nvim.json", false)[1] or "",
+      ":p"
+    ),
+    key = "swank",
+  })
+end
+
 --- Setup swank.nvim with user config
 ---@param opts table|nil
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", default_config, opts or {})
+  register_neoconf_schema()
 end
 
 --- Called on FileType lisp/cl — attach keymaps and optionally connect
