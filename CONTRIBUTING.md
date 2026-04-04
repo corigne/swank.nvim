@@ -102,11 +102,29 @@ end)
 
 ## Submitting a pull request
 
-1. Fork the repository and create a feature branch.
+swank.nvim uses **GitHub Flow**: all work happens on short-lived branches that are opened as PRs and squash-merged into `main`.
+
+### Branch naming
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| Feature | `feature/<short-description>` | `feature/sldb-eval-in-frame` |
+| Bug fix | `fix/<short-description>` | `fix/inspector-part-index` |
+| Docs | `docs/<short-description>` | `docs/keybindings-table` |
+| Chore / infra | `chore/<short-description>` | `chore/update-ci-node` |
+
+Branch directly off `main` and keep the branch focused on one thing.
+
+### PR checklist
+
+1. Branch off `main` with an appropriate `feature/`, `fix/`, `docs/`, or `chore/` prefix.
 2. Make your changes with tests.
-3. Run `make coverage` and confirm the gate is met.
+3. Run `make coverage` and confirm the 80 % gate is met.
 4. Run `make test` to confirm nothing regressed.
 5. Open a pull request with a clear description of what changed and why.
+6. CI must be green before merge — unit tests, coverage, and (where possible) integration tests.
+
+PRs are **squash-merged** to keep `main`'s history clean and linear. Write your PR title as you would a commit subject line (imperative mood, ≤ 72 chars).
 
 If coverage drops below 80 % for any file you touched, the PR description must explain why and propose a path to closing the gap.
 
