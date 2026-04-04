@@ -24,7 +24,11 @@ local function swank_reachable()
     done = true
     handle:close()
   end)
-  vim.wait(1000, function() return done end, 10)
+  -- Plain libuv callback (no vim.schedule wrapper) — vim.uv.run() is safe here
+  local deadline = vim.uv.now() + 1000
+  while not done and vim.uv.now() < deadline do
+    vim.uv.run("once")
+  end
   if not done then handle:close() end
   return ok
 end
@@ -98,18 +102,11 @@ describe("Swank integration", function()
       end)
     end)
 
-    skip_or("returns :abort for an unhandled error", function()
-      with_connection(function(done)
-        -- Eval something that signals an error; abort at top level
-        client.rex({ "swank:eval-and-grab-output", "(/ 1 0)" }, function(result)
-          -- With SBCL this returns :abort since the debugger is not interactive
-          -- (or it may return :ok with an error description depending on restarts)
-          assert.is_table(result)
-          assert.is_not_nil(result[1])
-          done()
-        end)
-      end)
-    end)
+    -- NOTE: testing :abort-on-unhandled-error is intentionally omitted.
+    -- Evaluating (/ 1 0) activates Swank's SLDB, which requires an interactive
+    -- restart choice to dismiss. In headless CI there is no way to invoke the
+    -- restart, so the debug session lingers on the server and corrupts subsequent
+    -- tests. SLDB behaviour is covered by sldb_spec (unit) and manual testing.
 
     skip_or("set-package changes the current package", function()
       with_connection(function(done)

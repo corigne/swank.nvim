@@ -49,8 +49,15 @@ end
 ---@param lines string[]
 local function set_lines(lines)
   local buf = state.bufnr
+  -- nvim_buf_set_lines rejects strings containing '\n'; flatten before writing
+  local flat = {}
+  for _, l in ipairs(lines) do
+    for _, part in ipairs(vim.split(l, "\n", { plain = true })) do
+      table.insert(flat, part)
+    end
+  end
   vim.bo[buf].modifiable = true
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, flat)
   vim.bo[buf].modifiable = false
 end
 
