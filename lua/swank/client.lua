@@ -192,6 +192,10 @@ function M.is_connected()
   return connection_state == "connected"
 end
 
+function M.get_package()
+  return current_package
+end
+
 -- ---------------------------------------------------------------------------
 -- Low-level RPC
 -- ---------------------------------------------------------------------------
@@ -308,9 +312,38 @@ end
 ---@param sym string
 function M.describe(sym)
   M.rex({ "swank:describe-symbol", sym }, function(result)
-    if type(result) == "table" and result[1] == ":ok" then
-      require("swank.ui.repl").append(tostring(result[2] or "") .. "\n")
-    end
+    if type(result) ~= "table" or result[1] ~= ":ok" then return end
+    local text = tostring(result[2] or ""):gsub("\r", "")
+    local lines = vim.split(text, "\n", { plain = true })
+    while #lines > 0 and lines[#lines] == "" do table.remove(lines) end
+    if #lines == 0 then return end
+    local width = 0
+    for _, l in ipairs(lines) do width = math.max(width, #l) end
+    width = math.min(math.max(width, 40), math.floor(vim.o.columns * 0.7))
+    local height = math.min(#lines, math.floor(vim.o.lines * 0.5))
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[buf].filetype = "swank-describe"
+    vim.bo[buf].buftype  = "nofile"
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.bo[buf].modifiable = false
+    local cfg = require("swank").config.ui.floating
+    local win = vim.api.nvim_open_win(buf, false, {
+      relative = "cursor",
+      row = 1, col = 0,
+      width = width, height = height,
+      style = "minimal",
+      border = cfg.border or "rounded",
+      title = " " .. sym .. " ",
+      title_pos = "center",
+    })
+    vim.wo[win].wrap = true
+    -- close on any cursor movement or buffer leave
+    vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "BufLeave" }, {
+      once = true,
+      callback = function()
+        if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+      end,
+    })
   end)
 end
 
