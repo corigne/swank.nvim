@@ -1,7 +1,6 @@
 # Keybindings
 
-All keymaps use `<LocalLeader>` as the prefix and are configurable via `maplocalleader`.
-The examples below assume `maplocalleader = " "` (i.e. Space) — adjust to match your config.
+All keymaps use `<LocalLeader>` as the prefix. Set `maplocalleader` in your Neovim config to choose your preferred key.
 See [Configuration](Configuration) for setup details.
 
 ---
