@@ -98,9 +98,9 @@ jobs:
 
       - name: Install SBCL 2.6.3
         run: |
-          wget -q https://downloads.sourceforge.net/project/sbcl/sbcl/2.6.3/sbcl-2.6.3-x86-64-linux-binary.tar.bz2
-          tar xjf sbcl-2.6.3-x86-64-linux-binary.tar.bz2
-          sudo bash sbcl-2.6.3-x86-64-linux/install.sh
+          curl -fL -o sbcl.tar.bz2 https://downloads.sourceforge.net/project/sbcl/sbcl/2.6.3/sbcl-2.6.3-x86-64-linux-binary.tar.bz2
+          tar xjf sbcl.tar.bz2
+          cd sbcl-2.6.3-x86-64-linux && sudo bash install.sh
           sbcl --version
 
       - name: Install Quicklisp
