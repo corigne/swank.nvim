@@ -41,7 +41,76 @@ swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built
 - [x] Compiler notes → `vim.diagnostic`
 - [x] Trace dialog (SWANK-TRACE-DIALOG)
 - [x] which-key integration
-- [x] Autostart: spawn sbcl + Quicklisp on `:SwankAttach`
+- [x] Autostart: spawn sbcl + Quicklisp when `require("swank").attach()` is called (typically from a `FileType` autocmd)
+
+## Prerequisites
+
+### Neovim
+
+**Neovim 0.10+** required. 0.13+ recommended (used for development and testing).
+
+### Common Lisp implementation
+
+swank.nvim connects to a running [Swank](https://github.com/slime/slime) server.
+Any implementation that ships Swank should work; tested support:
+
+| Implementation | Support | Notes |
+|----------------|---------|-------|
+| [SBCL](https://www.sbcl.org/) | ✅ Primary | Recommended. Best Swank support. |
+| [CCL (Clozure CL)](https://ccl.clozure.com/) | ✅ Should work | Swank is well-supported |
+| [ECL](https://ecl.common-lisp.dev/) | ⚠️ Partial | Swank works; some features limited |
+| [ABCL](https://abcl.org/) | ⚠️ Partial | Runs on JVM; Swank can be quirky |
+| [CLISP](https://clisp.sourceforge.io/) | ❌ Not recommended | Swank support is minimal |
+| Allegro CL | 🔲 Untested | Swank support exists in theory |
+
+### Quicklisp
+
+[Quicklisp](https://www.quicklisp.org/) is the standard CL package manager and
+the easiest way to install Swank.
+
+**Install Quicklisp — SBCL example** (other implementations have different init files and invocation syntax):
+
+```sh
+curl -O https://beta.quicklisp.org/quicklisp.lisp
+sbcl --load quicklisp.lisp \
+     --eval '(quicklisp-quickstart:install)' \
+     --eval '(ql:add-to-init-file)' \
+     --quit
+```
+
+After that, load and start Swank from a file (recommended — keep this in your project or `~/.sbcl/`):
+
+```lisp
+;; start-swank.lisp
+(ql:quickload "swank" :silent t)
+(swank:create-server :port 4005 :dont-close t)
+```
+
+```sh
+sbcl --load start-swank.lisp
+```
+
+Then connect from Neovim with `<LocalLeader>cc` (connect) or `<LocalLeader>rr` (start SBCL + connect).
+If you set `maplocalleader = " "`, those become `<Space>cc` and `<Space>rr`.
+
+### Without Quicklisp (SBCL only)
+
+SBCL bundles a copy of Swank. You can load it directly:
+
+```lisp
+;; start-swank-no-ql.lisp
+(require :asdf)
+(require :swank)
+(swank:create-server :port 4005 :dont-close t)
+```
+
+### ASDF (build system)
+
+ASDF is bundled with SBCL, CCL, and most modern implementations. Required for
+loading `swank-asdf` contrib (used for project-aware compilation). No separate
+install needed.
+
+---
 
 ## Installation
 
@@ -90,7 +159,7 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-**Requires:** Neovim 0.10+, SBCL + Quicklisp (for autostart)
+**Requires:** Neovim 0.10+ — see [Prerequisites](#prerequisites) above
 
 ## Completions
 
