@@ -175,16 +175,28 @@ describe("Swank integration", function()
       f:write("(defun test-fn (x) (* x x))\n")
       f:close()
 
-      with_connection(function(done)
+      -- Log every raw Swank message during this test for CI diagnosis
+      local transport_mod = require("swank.transport")
+      local orig_feed = transport_mod.Transport._feed
+      transport_mod.Transport._feed = function(self, data)
+        io.write("[COMPILE-FEED] " .. data:sub(1, 200) .. "\n")
+        io.flush()
+        orig_feed(self, data)
+      end
+
+      with_connection(function(done, fail)
         client.rex({ "swank:compile-file-for-emacs", path, false }, function(result)
-          assert.equals(":ok", result[1])
-          local cr = result[2]
-          assert.is_table(cr)
-          assert.equals(":compilation-result", cr[1])
-          done()
+          local ok, err = pcall(function()
+            assert.equals(":ok", result[1])
+            local cr = result[2]
+            assert.is_table(cr)
+            assert.equals(":compilation-result", cr[1])
+          end)
+          if ok then done() else fail(err) end
         end)
       end)
 
+      transport_mod.Transport._feed = orig_feed
       os.remove(path)
     end)
   end)
