@@ -253,8 +253,9 @@ function M.open(msg)
     -- log condition: msg[4] = (description type extra...)
     local cond = msg[4]
     if type(cond) == "table" then
-      io.write(string.format("[sldb]   condition: %s | type: %s\n",
-        tostring(cond[1]), tostring(cond[2])))
+      local desc = tostring(cond[1]):gsub("\n", "\\n"):gsub("%s+", " ")
+      io.write(string.format("[sldb]   condition: %s\n", desc))
+      io.write(string.format("[sldb]   cond-type: %s\n", tostring(cond[2])))
     else
       io.write(string.format("[sldb]   condition raw: %s\n", tostring(cond)))
     end

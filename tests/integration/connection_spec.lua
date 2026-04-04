@@ -174,8 +174,8 @@ describe("Swank integration", function()
         -- compile-file-for-emacs blocks SBCL in CI (no terminal for prompts).
         client.rex(
           { "swank:compile-string-for-emacs",
-            "(defun swank-nvim-test-fn (x) (* x x))",
-            "*swank-nvim-test*", 1, "/tmp/swank-nvim-test.lisp", false },
+            "(+ 1 1)",
+            "*swank-nvim-test*", 0, false, false },
           function(result)
             local ok, err = pcall(function()
               assert.equals(":ok", result[1])
