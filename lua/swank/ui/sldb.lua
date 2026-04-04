@@ -237,10 +237,34 @@ function M.open(msg)
   state.restarts = type(msg[5]) == "table" and msg[5] or {}
   state.frames   = type(msg[6]) == "table" and msg[6] or {}
 
-  -- In headless mode (no UI attached) there is no window to open.
-  -- Silently ignore the :debug event; the SLDB session remains on its own
-  -- thread and does not block evals that run on separate worker threads.
+  -- In headless mode (no UI) invoke the CONTINUE or MUFFLE-WARNING restart to
+  -- free the SBCL worker thread back to the pool.  Simply returning would leave
+  -- the thread permanently blocked in sldb-loop's wait-for-event, exhausting
+  -- the thread pool after enough connections and causing all subsequent RPCs to
+  -- hang.  CONTINUE resumes execution past the warn call; the thread exits
+  -- cleanly.  throw-to-toplevel / sldb-abort kills the thread instead — avoid.
   if #vim.api.nvim_list_uis() == 0 then
+    local thread  = msg[2]
+    local level   = tonumber(msg[3]) or 1
+    local restarts = type(msg[5]) == "table" and msg[5] or {}
+
+    local idx = nil
+    for i, r in ipairs(restarts) do
+      local name = type(r) == "table" and r[1] or ""
+      if name == "CONTINUE" or name == "MUFFLE-WARNING" then
+        idx = i - 1  -- Swank uses 0-based restart indices
+        break
+      end
+    end
+
+    if idx ~= nil then
+      client().rex(
+        { "swank:invoke-nth-restart-for-emacs", level, idx },
+        function() end,
+        nil,
+        thread
+      )
+    end
     return
   end
 

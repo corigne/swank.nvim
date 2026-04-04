@@ -119,14 +119,15 @@ jobs:
         run: |
           sbcl --noinform --non-interactive \
             --load ~/quicklisp/setup.lisp \
-            --eval '(ql:quickload :swank :silent t)' \
+            --eval "(handler-bind ((warning (function muffle-warning))) (ql:quickload :swank :silent t))" \
             --eval '(quit)'
 
       - name: Start Swank server
         run: |
           sbcl --noinform \
             --load ~/quicklisp/setup.lisp \
-            --eval '(ql:quickload :swank :silent t)' \
+            --eval "(handler-bind ((warning (function muffle-warning))) (ql:quickload :swank :silent t))" \
+            --eval '(declaim (sb-ext:muffle-conditions warning))' \
             --eval '(swank:create-server :port 4005 :dont-close t)' \
             --eval '(loop (sleep 60))' &
 
