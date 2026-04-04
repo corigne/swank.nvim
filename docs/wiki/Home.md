@@ -74,5 +74,5 @@ sbcl --load start-swank.lisp
 | Cross-reference (xref) | ✅ |
 | Find definition | ✅ |
 | Compiler notes (diagnostics) | ✅ |
-| Debugger (SLDB) | 🚧 |
-| Trace dialog | 🚧 |
+| Debugger (SLDB) | ✅ |
+| Trace dialog | ✅ |

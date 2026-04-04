@@ -157,8 +157,8 @@ the plan milestones:
 |-------|--------|
 | Transport + Protocol + Eval | ✅ |
 | Completion + Autodoc | ✅ |
-| Debugger (SLDB) | 🚧 In progress |
+| Debugger (SLDB) | ✅ |
 | Inspector + XRef | ✅ |
 | Compiler notes | ✅ |
-| Trace dialog | 🚧 Planned |
+| Trace dialog | ✅ |
 | Full vimdoc | 🚧 Planned |
