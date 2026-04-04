@@ -248,6 +248,14 @@ function M.open(msg)
     local level   = tonumber(msg[3]) or 1
     local restarts = type(msg[5]) == "table" and msg[5] or {}
 
+    io.write(string.format("[sldb] headless :debug thread=%s level=%s restarts=%d\n",
+      tostring(thread), tostring(level), #restarts))
+    for i, r in ipairs(restarts) do
+      io.write(string.format("[sldb]   restart[%d] = %s\n", i,
+        type(r) == "table" and tostring(r[1]) or tostring(r)))
+    end
+    io.flush()
+
     local idx = nil
     for i, r in ipairs(restarts) do
       local name = type(r) == "table" and r[1] or ""
@@ -257,10 +265,16 @@ function M.open(msg)
       end
     end
 
+    io.write(string.format("[sldb] chosen idx=%s\n", tostring(idx)))
+    io.flush()
+
     if idx ~= nil then
       client().rex(
         { "swank:invoke-nth-restart-for-emacs", level, idx },
-        function() end,
+        function()
+          io.write("[sldb] invoke-restart returned\n")
+          io.flush()
+        end,
         nil,
         thread
       )
