@@ -1,5 +1,6 @@
 -- swank.nvim — cross-reference UI
--- Displays xref results in quickfix or jumps directly for single hits.
+-- Uses vim.ui.select for multi-result display (snacks/telescope/dressing hook
+-- this automatically); falls back to Neovim's built-in numbered selector.
 
 local M = {}
 
@@ -39,6 +40,11 @@ local function refs_to_qflist(refs, kind)
   return qf
 end
 
+local function jump_to(entry)
+  vim.cmd("edit " .. vim.fn.fnameescape(entry.filename))
+  vim.api.nvim_win_set_cursor(0, { entry.lnum, 0 })
+end
+
 --- Show cross-reference results
 ---@param result any  (:ok refs) from swank:xref or swank:find-definitions-for-emacs
 ---@param kind string  "calls" | "references" | "definition"
@@ -60,25 +66,27 @@ function M.show(result, kind)
   -- xref returns ((:calls ((name loc) ...))) — one level deeper
   local pairs_list = refs
   if type(refs[1]) == "table" and type(refs[1][1]) == "table" then
-    -- xref format: wrapped in a kind-keyed list
     pairs_list = refs[1][2] or {}
   end
 
-  local qf = refs_to_qflist(pairs_list, kind)
-
-  if #qf == 0 then
+  local entries = refs_to_qflist(pairs_list, kind)
+  if #entries == 0 then
     vim.notify("swank.nvim: no source locations for " .. kind, vim.log.levels.INFO)
     return
   end
 
-  -- Single definition → jump directly; multiple → open quickfix
-  if kind == "definition" and #qf == 1 then
-    vim.cmd("edit " .. vim.fn.fnameescape(qf[1].filename))
-    vim.api.nvim_win_set_cursor(0, { qf[1].lnum, 0 })
-  else
-    vim.fn.setqflist({}, "r", { title = "swank:" .. kind, items = qf })
-    vim.cmd("copen")
+  -- Single result → jump directly, no picker needed
+  if #entries == 1 then
+    jump_to(entries[1])
+    return
   end
+
+  vim.ui.select(entries, {
+    prompt      = "swank: " .. kind,
+    format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
+  }, function(choice)
+    if choice then jump_to(choice) end
+  end)
 end
 
 -- Exported for testing
