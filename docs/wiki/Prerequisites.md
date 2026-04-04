@@ -17,11 +17,17 @@ No Vimscript compatibility layer is needed — this plugin is pure Lua.
 
 ---
 
-## Common Lisp implementation
+## Quick start (autostart — recommended)
 
-swank.nvim connects over TCP to a running [Swank](https://github.com/slime/slime)
-server. Swank is a protocol library included with SLIME and usable standalone.
-Any implementation that can load Swank should work.
+The default configuration automatically launches your CL implementation and
+connects to Swank when you open a `.lisp` file. **You don't need to write any
+startup scripts or start a server manually.**
+
+All you need is a supported CL implementation and Quicklisp.
+
+---
+
+## Common Lisp implementation
 
 | Implementation | Support | Notes |
 |----------------|---------|-------|
@@ -51,12 +57,20 @@ brew install sbcl
 
 **From source / prebuilt binaries:** https://www.sbcl.org/getting.html
 
+To use a different implementation, set `autostart.implementation` in your config:
+
+```lua
+require("swank").setup({
+  autostart = { implementation = "ccl" },  -- or "ecl", "abcl", "/usr/local/bin/sbcl", etc.
+})
+```
+
 ---
 
-## Quicklisp (recommended)
+## Quicklisp
 
 [Quicklisp](https://www.quicklisp.org/) is the standard CL package manager.
-It's the easiest way to install and update Swank.
+Install it once and swank.nvim will use it automatically to load Swank.
 
 ### One-time setup
 
@@ -71,54 +85,9 @@ sbcl --load quicklisp.lisp \
 This installs Quicklisp to `~/quicklisp/` and adds an auto-load snippet to
 `~/.sbclrc` so it's available in every SBCL session.
 
-### Starting Swank via Quicklisp
-
-Create a file (e.g. `~/.config/swank/start.lisp` or `./start-swank.lisp`):
-
-```lisp
-(ql:quickload "swank" :silent t)
-(swank:create-server :port 4005 :dont-close t)
-```
-
-Start it:
-```sh
-sbcl --load ~/.config/swank/start.lisp
-```
-
-Then connect from Neovim with `<LocalLeader>sc` (connect only) or `<LocalLeader>rr` (start SBCL + connect).
-`<LocalLeader>` is `<Space>` if you set `maplocalleader = " "`.
-
-### Using autostart
-
-If `autostart.enabled = true` in your swank.nvim config, the plugin generates a
-startup script and runs `<implementation> --load <tmpfile>` for you when you open
-a Lisp file. Swank starts on an ephemeral port (`:port 0`) and the plugin connects
-automatically — you don't need to manage a start file or port yourself.
-
-```lua
-require("swank").setup({
-  autostart = {
-    enabled        = true,
-    implementation = "sbcl",  -- path or name of the Lisp binary
-  },
-})
-```
-
----
-
-## Without Quicklisp
-
-SBCL ships with a bundled copy of Swank. You can start it without Quicklisp:
-
-```lisp
-;; start-swank-no-ql.lisp
-(require :asdf)
-(require :swank)
-(swank:create-server :port 4005 :dont-close t)
-```
-
-Note: the bundled Swank may be older than the Quicklisp version and some
-contribs (`swank-fuzzy`, `swank-arglists`, etc.) may not load.
+> **No Quicklisp?** SBCL bundles a copy of Swank via ASDF. swank.nvim will
+> automatically fall back to `(require :swank)` if Quicklisp is not found.
+> Note: the bundled Swank may be older and some contribs may not load.
 
 ---
 
@@ -132,18 +101,22 @@ contribs (`swank-fuzzy`, `swank-arglists`, etc.) may not load.
 
 ---
 
-## Port availability
+## Advanced: connecting to an existing server
 
-Port **4005** is the default when connecting to an **externally started** Swank
-server. If you use `autostart`, the plugin starts Swank on an ephemeral port
-(`:port 0`) and connects automatically — no port management needed.
+If you want to manage the Swank server yourself (remote machines, custom
+setups, or `autostart.enabled = false`), start it from your CL image:
 
-If you start Swank manually and want a different port, pass `:port` to
-`swank:create-server` and mirror it in your swank.nvim config:
-
-```lua
-require("swank").setup({ server = { port = 14005 } })
+```lisp
+(ql:quickload "swank" :silent t)
+(swank:create-server :port 4005 :dont-close t)
 ```
+
+Then connect from Neovim with `<LocalLeader>sc` (`<Space>sc` if your
+`maplocalleader` is space).
+
+Port **4005** is the default for external servers. If you use autostart, the
+plugin starts Swank on an ephemeral port (`:port 0`) and connects
+automatically — no port configuration needed.
 
 ---
 
@@ -151,6 +124,4 @@ require("swank").setup({ server = { port = 14005 } })
 
 - [ ] Neovim 0.10+
 - [ ] SBCL (or another supported implementation) on `$PATH`
-- [ ] Quicklisp installed (or bundled Swank available)
-- [ ] A `start-swank.lisp` file (manual start), or `autostart.enabled = true` in config
-- [ ] Port 4005 free (or configured to an available port)
+- [ ] Quicklisp installed at `~/quicklisp/` (or bundled Swank available via ASDF)
