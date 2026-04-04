@@ -42,7 +42,10 @@ end
 
 local function jump_to(entry)
   vim.cmd("edit " .. vim.fn.fnameescape(entry.filename))
-  vim.api.nvim_win_set_cursor(0, { entry.lnum, 0 })
+  vim.schedule(function()
+    local lnum = math.min(entry.lnum, vim.api.nvim_buf_line_count(0))
+    vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+  end)
 end
 
 --- Show cross-reference results
