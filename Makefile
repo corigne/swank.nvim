@@ -31,7 +31,7 @@ test-all: test-unit test-integration
 coverage:
 	@rm -f $(ROOT)/luacov.stats.out $(ROOT)/luacov.report.out
 	cd $(ROOT) && $(NVIM) --headless -u $(COV_INIT) \
-	  -c "lua require('plenary.test_harness').test_directory('$(UNIT_DIR)', { minimal_init = '$(COV_INIT)' })" \
+	  -c "lua require('plenary.test_harness').test_directory('$(UNIT_DIR)', { minimal_init = '$(COV_INIT)', sequential = true })" \
 	  -c "qa!"
 	cd $(ROOT) && $(LUACOV)
 	@echo ""

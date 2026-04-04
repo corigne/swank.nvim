@@ -26,9 +26,19 @@ for _, p in ipairs(plenary_candidates) do
   end
 end
 
--- Start luacov before any plugin code is loaded.
--- Save stats on exit so qa! triggers the write reliably.
+-- Disable JIT compilation before starting luacov.
+-- Luacov uses debug.sethook("l") to count executed lines.  LuaJIT-compiled
+-- functions bypass this hook entirely, making function bodies appear uncovered
+-- even when they are exercised by tests.  plenary.test_harness passes
+-- --noplugin to child processes, so user plugins cannot re-enable JIT after
+-- this call — which is why this must live here and NOT in a VimEnter autocmd
+-- (VimEnter does not fire in --headless mode).
+if jit then jit.off() end
+
+-- Start luacov after JIT is disabled so every line we instrument is reachable
+-- by the debug hook.
 require("luacov")
+
 vim.api.nvim_create_autocmd("VimLeavePre", {
   callback = function()
     require("luacov.runner").save_stats()
