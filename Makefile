@@ -1,4 +1,6 @@
-.PHONY: test test-unit test-integration test-all coverage lint
+BADGE_SCRIPT := scripts/update_coverage_badge.sh
+
+.PHONY: test test-unit test-integration test-all coverage badge lint
 
 NVIM        ?= nvim
 INIT        := tests/minimal_init.lua
@@ -34,3 +36,7 @@ coverage:
 	@echo ""
 	@echo "=== Coverage summary ==="
 	@grep -E "[0-9]+\.[0-9]+%" luacov.report.out || cat luacov.report.out
+
+# Update the coverage badge in README.md (runs coverage first)
+badge: coverage
+	@bash $(BADGE_SCRIPT) luacov.report.out
