@@ -28,8 +28,8 @@ require("swank").setup({
   -- UI settings
   ui = {
     repl = {
-      position = "auto",  -- "auto" | "right" | "bottom" | "float"
-      size     = 0.45,    -- fraction (0–1) or fixed columns/rows
+      position = "auto",  -- "auto" | "left" | "right" | "top" | "bottom" | "float"
+      size     = 0.45,    -- fraction (0 < size <= 1) or fixed columns/rows
     },
     floating = {
       border = "rounded", -- border style for floating windows
@@ -102,16 +102,18 @@ Then connect with `<LocalLeader>cc` (or `<LocalLeader>rr` to start + connect).
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `ui.repl.position` | `string` | `"auto"` | Window placement strategy |
-| `ui.repl.size` | `number` | `0.45` | Width (for `"right"`) or height (for `"bottom"`) as fraction or integer |
+| `ui.repl.size` | `number` | `0.45` | Width (for vertical splits) or height (for horizontal) as fraction `(0 < size <= 1)` or fixed integer |
 
 ### Position values
 
 | Value | Behaviour |
 |-------|-----------|
 | `"auto"` | Picks the best layout at runtime — see [Architecture: REPL adaptive layout](Architecture#repl-adaptive-layout) |
-| `"right"` | Always a vertical split on the right |
-| `"bottom"` | Always a horizontal split below |
-| `"float"` | Always a floating window centred on screen |
+| `"right"` | Vertical split on the right |
+| `"left"` | Vertical split on the left |
+| `"bottom"` | Horizontal split below |
+| `"top"` | Horizontal split above |
+| `"float"` | Floating window centred on screen |
 
 ### Size
 
@@ -125,7 +127,7 @@ Then connect with `<LocalLeader>cc` (or `<LocalLeader>rr` to start + connect).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `ui.floating.border` | `string` | `"rounded"` | Border style: `"rounded"`, `"single"`, `"double"`, `"solid"`, `"none"` |
+| `ui.floating.border` | `string` | `"rounded"` | Any border value accepted by Neovim for `nvim_open_win()` — see `:h nvim_open_win()`. Common values: `"rounded"`, `"single"`, `"double"`, `"solid"`, `"none"` |
 
 ---
 
