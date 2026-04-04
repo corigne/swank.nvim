@@ -121,6 +121,7 @@ describe("Swank integration", function()
     end)
 
 
+    skip_or("set-package changes the current package", function()
       with_connection(function(done)
         client.rex({ "swank:set-package", "COMMON-LISP-USER" }, function(result)
           assert.equals(":ok", result[1])
