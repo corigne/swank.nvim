@@ -41,7 +41,7 @@ swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built
 - [x] Compiler notes → `vim.diagnostic`
 - [x] Trace dialog (SWANK-TRACE-DIALOG)
 - [x] which-key integration
-- [x] Autostart: spawn sbcl + Quicklisp on `:SwankAttach`
+- [x] Autostart: spawn sbcl + Quicklisp when `require("swank").attach()` is called (typically from a `FileType` autocmd)
 
 ## Prerequisites
 
@@ -68,7 +68,7 @@ Any implementation that ships Swank should work; tested support:
 [Quicklisp](https://www.quicklisp.org/) is the standard CL package manager and
 the easiest way to install Swank.
 
-**Install Quicklisp (one-time, any implementation):**
+**Install Quicklisp — SBCL example** (other implementations have different init files and invocation syntax):
 
 ```sh
 curl -O https://beta.quicklisp.org/quicklisp.lisp
@@ -90,7 +90,8 @@ After that, load and start Swank from a file (recommended — keep this in your 
 sbcl --load start-swank.lisp
 ```
 
-Then connect from Neovim: `<Space>sc`
+Then connect from Neovim with `<LocalLeader>cc` (connect) or `<LocalLeader>rr` (start SBCL + connect).
+If you set `maplocalleader = " "`, those become `<Space>cc` and `<Space>rr`.
 
 ### Without Quicklisp (SBCL only)
 

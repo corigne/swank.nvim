@@ -85,19 +85,22 @@ Start it:
 sbcl --load ~/.config/swank/start.lisp
 ```
 
-Then connect from Neovim with `<Space>sc`.
+Then connect from Neovim with `<LocalLeader>cc` (connect only) or `<LocalLeader>rr` (start SBCL + connect).
+`<LocalLeader>` is `<Space>` if you set `maplocalleader = " "`.
 
 ### Using autostart
 
-If `autostart = true` in your swank.nvim config, the plugin will run
-`sbcl --load <swank_script>` for you when you open a Lisp file.
-Set `swank_script` to the path of your start file:
+If `autostart.enabled = true` in your swank.nvim config, the plugin generates a
+startup script and runs `<implementation> --load <tmpfile>` for you when you open
+a Lisp file. Swank starts on an ephemeral port (`:port 0`) and the plugin connects
+automatically — you don't need to manage a start file or port yourself.
 
 ```lua
 require("swank").setup({
-  autostart    = true,
-  swank_script = vim.fn.expand("~/.config/swank/start.lisp"),
-  sbcl_cmd     = "sbcl",
+  autostart = {
+    enabled        = true,
+    implementation = "sbcl",  -- path or name of the Lisp binary
+  },
 })
 ```
 
@@ -131,12 +134,15 @@ contribs (`swank-fuzzy`, `swank-arglists`, etc.) may not load.
 
 ## Port availability
 
-The default Swank port is **4005**. Make sure nothing else is bound to it.
-To use a different port, pass `:port` to `swank:create-server` and set
-`port` in your swank.nvim config:
+Port **4005** is the default when connecting to an **externally started** Swank
+server. If you use `autostart`, the plugin starts Swank on an ephemeral port
+(`:port 0`) and connects automatically — no port management needed.
+
+If you start Swank manually and want a different port, pass `:port` to
+`swank:create-server` and mirror it in your swank.nvim config:
 
 ```lua
-require("swank").setup({ port = 14005 })
+require("swank").setup({ server = { port = 14005 } })
 ```
 
 ---
@@ -146,5 +152,5 @@ require("swank").setup({ port = 14005 })
 - [ ] Neovim 0.10+
 - [ ] SBCL (or another supported implementation) on `$PATH`
 - [ ] Quicklisp installed (or bundled Swank available)
-- [ ] A `start-swank.lisp` file, or `autostart` configured with `swank_script`
+- [ ] A `start-swank.lisp` file (manual start), or `autostart.enabled = true` in config
 - [ ] Port 4005 free (or configured to an available port)
