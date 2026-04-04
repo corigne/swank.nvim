@@ -504,34 +504,36 @@ end)
 
 describe("M.describe()", function()
   local mock, sent
+  local orig_open_win = vim.api.nvim_open_win
   before_each(function()
     silence_notify()
     mock_ui()
     mock, sent = make_mock_transport()
     client._test_inject(mock)
+    vim.api.nvim_open_win = function() return 1 end
   end)
   after_each(function()
     client._test_reset()
     restore_notify()
+    vim.api.nvim_open_win = orig_open_win
   end)
 
-  it("sends :describe-symbol and appends to repl on :ok result", function()
-    local appended = nil
-    require("swank.ui.repl").append = function(s) appended = s end
+  it("sends :describe-symbol and opens a float on :ok result", function()
+    local opened = false
+    vim.api.nvim_open_win = function() opened = true; return 1 end
     client.describe("mapcar")
     local id = decode_last(sent)[5]
     fake_return(id, { ":ok", "MAPCAR: blah blah" })
-    assert.is_not_nil(appended)
-    assert.truthy(appended:find("MAPCAR"))
+    assert.is_true(opened)
   end)
 
   it("callback does nothing on non-ok result", function()
-    local appended = nil
-    require("swank.ui.repl").append = function(s) appended = s end
+    local opened = false
+    vim.api.nvim_open_win = function() opened = true; return 1 end
     client.describe("mapcar")
     local id = decode_last(sent)[5]
     fake_return(id, { ":abort", "nope" })
-    assert.is_nil(appended)
+    assert.is_false(opened)
   end)
 end)
 

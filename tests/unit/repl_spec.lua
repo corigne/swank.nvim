@@ -94,14 +94,22 @@ end)
 
 describe("repl.append (direct buffer)", function()
   local saved_append
+  local saved_cmd
 
   before_each(function()
     saved_append = repl.append
     repl.append = real_append
+    -- stub vim.cmd so open_win's split command doesn't fail in headless
+    saved_cmd = vim.cmd
+    vim.cmd = function(c)
+      if type(c) == "string" and c:match("split") then return end
+      saved_cmd(c)
+    end
   end)
 
   after_each(function()
     repl.append = saved_append
+    vim.cmd = saved_cmd
   end)
 
   local function buf_lines()

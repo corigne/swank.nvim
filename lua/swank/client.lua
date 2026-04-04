@@ -326,17 +326,20 @@ function M.describe(sym)
     vim.bo[buf].buftype  = "nofile"
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo[buf].modifiable = false
-    local cfg = require("swank").config.ui.floating
+    local c = require("swank").config
+    local fcfg = (c and c.ui and c.ui.floating) or {}
     local win = vim.api.nvim_open_win(buf, false, {
       relative = "cursor",
       row = 1, col = 0,
       width = width, height = height,
       style = "minimal",
-      border = cfg.border or "rounded",
+      border = fcfg.border or "rounded",
       title = " " .. sym .. " ",
       title_pos = "center",
     })
-    vim.wo[win].wrap = true
+    if vim.api.nvim_win_is_valid(win) then
+      vim.wo[win].wrap = true
+    end
     -- close on any cursor movement or buffer leave
     vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "BufLeave" }, {
       once = true,
