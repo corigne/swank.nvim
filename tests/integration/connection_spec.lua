@@ -24,11 +24,7 @@ local function swank_reachable()
     done = true
     handle:close()
   end)
-  -- Spin the event loop briefly (up to 1s)
-  local deadline = vim.uv.now() + 1000
-  while not done and vim.uv.now() < deadline do
-    vim.uv.run("once")
-  end
+  vim.wait(1000, function() return done end, 10)
   if not done then handle:close() end
   return ok
 end
@@ -50,20 +46,12 @@ end
 --- Connect, run fn(done_cb), wait for done_cb() to be called (or timeout)
 ---@param fn fun(done: fun())
 local function with_connection(fn)
-  -- Connect synchronously (spin event loop until connected or failed)
-  local connected = false
-  local failed    = false
-
-  -- Override notify to suppress noise during tests
   local orig_notify = vim.notify
   vim.notify = function() end
 
   client.connect(HOST, PORT)
 
-  local deadline = vim.uv.now() + 3000
-  while not client.is_connected() and vim.uv.now() < deadline do
-    vim.uv.run("once")
-  end
+  vim.wait(3000, function() return client.is_connected() end, 10)
   vim.notify = orig_notify
 
   assert.is_true(client.is_connected(), "failed to connect to Swank server")
@@ -71,10 +59,7 @@ local function with_connection(fn)
   local done = false
   fn(function() done = true end)
 
-  local timeout = vim.uv.now() + 5000
-  while not done and vim.uv.now() < timeout do
-    vim.uv.run("once")
-  end
+  vim.wait(5000, function() return done end, 10)
   assert.is_true(done, "test timed out waiting for Swank response")
 
   client.disconnect()
