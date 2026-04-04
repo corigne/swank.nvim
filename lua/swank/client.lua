@@ -532,12 +532,17 @@ function M._on_connect()
   end)
 
   -- 2. Load contribs (quoted list of keyword symbols, e.g. :swank-repl)
-  M.rex({
-    "swank:swank-require",
-    { "QUOTE", cfg.contribs },
-  }, function(_)
+  local contribs = type(cfg.contribs) == "table" and #cfg.contribs > 0 and cfg.contribs
+  if contribs then
+    M.rex({
+      "swank:swank-require",
+      { "QUOTE", contribs },
+    }, function(_)
+      M.rex({ "swank:set-package", current_package }, function(_) end)
+    end)
+  else
     M.rex({ "swank:set-package", current_package }, function(_) end)
-  end)
+  end
 end
 
 -- ---------------------------------------------------------------------------
