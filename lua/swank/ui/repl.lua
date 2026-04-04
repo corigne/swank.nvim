@@ -2,8 +2,13 @@
 -- Manages a persistent output buffer for Swank REPL interaction.
 --
 -- Config (ui.repl):
---   position  "right"|"left"|"top"|"bottom"|"float"  default: "right"
+--   position  "auto"|"right"|"left"|"top"|"bottom"|"float"  default: "auto"
 --   size      0 < n <= 1 → fraction of editor dim; n > 1 → fixed cols/rows
+--
+-- "auto" layout selection:
+--   columns >= 120  →  right vertical split  (side panel)
+--   columns >= 80   →  bottom horizontal split
+--   else            →  floating window
 
 local M = {}
 
@@ -14,7 +19,7 @@ local winnr = nil
 
 local function cfg()
   local c = require("swank").config
-  return (c and c.ui and c.ui.repl) or { position = "right", size = 0.33 }
+  return (c and c.ui and c.ui.repl) or { position = "auto", size = 0.45 }
 end
 
 local function ensure_buf()
@@ -34,14 +39,23 @@ local function resolve_size(size, total)
   return math.max(1, math.floor(size))
 end
 
+--- Resolve "auto" to a concrete position based on current editor dimensions
+local function effective_pos(pos, size)
+  if pos ~= "auto" then return pos end
+  if vim.o.columns >= 120 then return "right" end
+  if vim.o.columns >= 80  then return "bottom" end
+  return "float"
+end
+
 local function open_win()
-  local c   = cfg()
-  local pos  = c.position or "right"
-  local size = c.size or 0.33
+  local c    = cfg()
+  local size = c.size or 0.45
+  local pos  = effective_pos(c.position or "auto", size)
   local buf  = ensure_buf()
 
   if pos == "float" then
-    local fcfg   = require("swank").config.ui.floating
+    local sc = require("swank").config
+    local fcfg  = (sc and sc.ui and sc.ui.floating) or {}
     local width  = resolve_size(size <= 1 and size or 0.5, vim.o.columns)
     local height = math.floor(vim.o.lines * 0.55)
     local row    = math.floor((vim.o.lines   - height) / 2)

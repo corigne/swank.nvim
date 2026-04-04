@@ -16,10 +16,11 @@ local default_config = {
   -- UI settings
   ui = {
     repl = {
-      -- "right" | "left" | "top" | "bottom" | "float"
-      position = "right",
+      -- "auto"|"right"|"left"|"top"|"bottom"|"float"
+      -- "auto" picks based on editor width: >=120→right, >=80→bottom, else float
+      position = "auto",
       -- fraction of editor width/height (0 < size <= 1) or fixed columns/rows
-      size = 0.33,
+      size = 0.45,
     },
     floating = {
       border = "rounded",

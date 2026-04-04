@@ -121,6 +121,42 @@ function M.attach(bufnr, config)
   map("n", "tc", function() client.clear_traces() end,   "Clear trace entries")
   map("n", "tg", function() client.refresh_traces() end, "Refresh trace entries")
 
+  -- ── LSP-compatible keymaps ────────────────────────────────────────────────
+  -- These override the standard LSP bindings for Lisp buffers so that the
+  -- familiar muscle memory works even without a Language Server running.
+  local lsp_opts = { buffer = bufnr, silent = true }
+  local function lsp(mode, lhs, rhs, desc)
+    vim.keymap.set(mode, lhs, rhs, vim.tbl_extend("force", lsp_opts, { desc = desc }))
+  end
+
+  -- gd / gD  — go to definition / find all definitions
+  lsp("n", "gd", function()
+    local sym = cword()
+    if sym then client.find_definition(sym) end
+  end, "Go to definition (Swank)")
+
+  -- K  — hover / describe (mirrors vim.lsp.buf.hover)
+  lsp("n", "K", function()
+    local sym = cword()
+    if sym then client.describe(sym) end
+  end, "Describe symbol (Swank)")
+
+  -- gr  — references  (mirrors vim.lsp.buf.references)
+  lsp("n", "gr", function()
+    local sym = cword()
+    if sym then client.xref_references(sym) end
+  end, "Find references (Swank)")
+
+  -- gR  — callers (swank-specific; analogous to call hierarchy)
+  lsp("n", "gR", function()
+    local sym = cword()
+    if sym then client.xref_calls(sym) end
+  end, "Find callers (Swank)")
+
+  -- <C-k>  — signature help (mirrors vim.lsp.buf.signature_help)
+  lsp("n", "<C-k>", function() client.autodoc() end, "Arglist / signature help (Swank)")
+  lsp("i", "<C-k>", function() client.autodoc() end, "Arglist / signature help (Swank)")
+
   -- ── which-key groups ─────────────────────────────────────────────────────
   local ok, wk = pcall(require, "which-key")
   if ok then
