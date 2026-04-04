@@ -250,6 +250,14 @@ function M.open(msg)
 
     io.write(string.format("[sldb] headless :debug thread=%s level=%s restarts=%d\n",
       tostring(thread), tostring(level), #restarts))
+    -- log condition: msg[4] = (description type extra...)
+    local cond = msg[4]
+    if type(cond) == "table" then
+      io.write(string.format("[sldb]   condition: %s | type: %s\n",
+        tostring(cond[1]), tostring(cond[2])))
+    else
+      io.write(string.format("[sldb]   condition raw: %s\n", tostring(cond)))
+    end
     for i, r in ipairs(restarts) do
       io.write(string.format("[sldb]   restart[%d] = %s\n", i,
         type(r) == "table" and tostring(r[1]) or tostring(r)))
