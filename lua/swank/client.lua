@@ -12,10 +12,10 @@ local transport = nil
 ---@type "disconnected"|"connecting"|"connected"
 local connection_state = "disconnected"
 
----@type integer|nil  jobstart job id for the sbcl process
-local sbcl_job_id = nil
+---@type integer|nil  jobstart job id for the CL implementation process
+local impl_job_id = nil
 
----@type string[]  stderr lines collected during sbcl startup; shown only on error exit
+---@type string[]  stderr lines collected during implementation startup; shown only on error exit
 local stderr_log = {}
 ---@type integer  monotonically increasing message ID
 local msg_id = 0
@@ -73,7 +73,18 @@ function M.connect(host, port)
   end)
 end
 
---- Spawn SBCL with Swank, detect port from file, then connect
+--- CLI flags for each supported CL implementation.
+--- The flags suppress banners/interactivity and load a file.
+--- Unknown implementations fall back to SBCL-style flags.
+---@type table<string, string[]>
+local impl_cli_flags = {
+  sbcl  = { "--noinform", "--non-interactive", "--load" },
+  ccl   = { "--quiet", "--batch", "--load" },
+  ecl   = { "--norc", "--load" },
+  abcl  = { "--batch", "--load" },
+}
+
+--- Spawn the configured CL implementation with Swank, detect port from file, then connect
 function M.start_and_connect()
   if connection_state ~= "disconnected" then return end
 
@@ -111,11 +122,19 @@ function M.start_and_connect()
   f:close()
 
   local impl = require("swank").config.autostart.implementation
+  -- Build argv: binary + quiet/batch flags + "--load" + script
+  local impl_name = vim.fn.fnamemodify(impl, ":t"):lower()
+  local flags = impl_cli_flags[impl_name] or impl_cli_flags.sbcl
+  -- flags ends with "--load"; append the script path
+  local argv = { impl }
+  for _, f in ipairs(flags) do table.insert(argv, f) end
+  table.insert(argv, script_file)
+
   connection_state = "connecting"
   vim.notify("swank.nvim: starting " .. impl .. "…", vim.log.levels.INFO)
 
-  sbcl_job_id = vim.fn.jobstart(
-    { impl, "--noinform", "--non-interactive", "--load", script_file },
+  impl_job_id = vim.fn.jobstart(
+    argv,
     {
       on_stderr = function(_, data)
         for _, line in ipairs(data) do
@@ -125,12 +144,12 @@ function M.start_and_connect()
         end
       end,
       on_exit = function(_, code)
-        sbcl_job_id = nil
+        impl_job_id = nil
         if connection_state ~= "connected" then
           connection_state = "disconnected"
           local tail = table.concat(stderr_log, "\n")
           vim.notify(
-            "swank.nvim: sbcl exited (code " .. code .. ")\n" .. tail,
+            "swank.nvim: " .. impl .. " exited (code " .. code .. ")\n" .. tail,
             vim.log.levels.ERROR
           )
         end
@@ -139,7 +158,7 @@ function M.start_and_connect()
     }
   )
 
-  if sbcl_job_id <= 0 then
+  if impl_job_id <= 0 then
     connection_state = "disconnected"
     vim.notify("swank.nvim: failed to start " .. impl, vim.log.levels.ERROR)
     return
@@ -173,16 +192,16 @@ function M.start_and_connect()
   end))
 end
 
---- Disconnect and optionally stop the sbcl process
+--- Disconnect and optionally stop the CL implementation process
 function M.disconnect()
   if transport then
     transport:disconnect()
     transport = nil
   end
   connection_state = "disconnected"
-  if sbcl_job_id then
-    vim.fn.jobstop(sbcl_job_id)
-    sbcl_job_id = nil
+  if impl_job_id then
+    vim.fn.jobstop(impl_job_id)
+    impl_job_id = nil
   end
   vim.notify("swank.nvim: disconnected", vim.log.levels.INFO)
 end
@@ -727,6 +746,7 @@ function M._test_reset()
   callbacks        = {}
   msg_id           = 0
   stderr_log       = {}
+  impl_job_id      = nil
 end
 
 return M

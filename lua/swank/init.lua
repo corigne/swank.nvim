@@ -8,7 +8,7 @@ local default_config = {
     host = "127.0.0.1",
     port = 4005,
   },
-  -- Automatically start SBCL + Swank server on first attach
+  -- Automatically start a CL implementation + Swank server on first attach
   autostart = {
     enabled = true,
     implementation = "sbcl",
