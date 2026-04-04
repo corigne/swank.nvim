@@ -12,7 +12,7 @@ The REPL window opens automatically whenever new output arrives from the server.
 You can also open or focus it manually:
 
 ```
-<Space>ro
+<LocalLeader>ro
 ```
 
 ---
@@ -64,7 +64,7 @@ REPL window.
 ## Clearing the REPL
 
 ```
-<Space>rc
+<LocalLeader>rc
 ```
 
 ---
@@ -72,7 +72,7 @@ REPL window.
 ## Switching packages
 
 ```
-<Space>rp
+<LocalLeader>rp
 ```
 
 Prompts for a package name and tells the Swank server to switch the active
@@ -96,7 +96,7 @@ The REPL buffer shows output from multiple Swank event types:
 ## Interacting with the REPL buffer
 
 The REPL buffer (`swank://repl`) is normally read-only. To send an expression
-to the server, use `<Space>ei` (interactive eval with prompt) or the eval
+to the server, use `<LocalLeader>ei` (interactive eval with prompt) or the eval
 keymaps from a Lisp source buffer.
 
 ---

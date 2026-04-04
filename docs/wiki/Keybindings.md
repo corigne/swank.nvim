@@ -1,10 +1,8 @@
 # Keybindings
 
-All keymaps are buffer-local and only active in `lisp` / `commonlisp` buffers
-once `require("swank").attach(bufnr)` has been called.
-
-The examples below use `<Space>` as the prefix, assuming `maplocalleader = " "`.
-The actual prefix is `<LocalLeader>` and is configurable — see [Configuration](Configuration).
+All keymaps use `<LocalLeader>` as the prefix and are configurable via `maplocalleader`.
+The examples below assume `maplocalleader = " "` (i.e. Space) — adjust to match your config.
+See [Configuration](Configuration) for setup details.
 
 ---
 

@@ -122,8 +122,7 @@ If you want to manage the Swank server yourself (remote machines, custom setups,
 (swank:create-server :port 4005 :dont-close t)
 ```
 
-Then connect from Neovim with `<LocalLeader>lc` (or `<Space>lc` if your
-`maplocalleader` is space).
+Then connect from Neovim with `<LocalLeader>lc`.
 
 ---
 
