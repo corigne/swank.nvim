@@ -168,36 +168,24 @@ describe("Swank integration", function()
   end)
 
   describe("compilation", function()
-    skip_or("compile-file returns :compilation-result", function()
-      -- Write a trivial lisp file to /tmp
-      local path = "/tmp/swank_nvim_test.lisp"
-      local f = io.open(path, "w")
-      f:write("(defun test-fn (x) (* x x))\n")
-      f:close()
-
-      -- Log every raw Swank message during this test for CI diagnosis
-      local transport_mod = require("swank.transport")
-      local orig_feed = transport_mod.Transport._feed
-      transport_mod.Transport._feed = function(self, data)
-        io.write("[COMPILE-FEED] " .. data:sub(1, 200) .. "\n")
-        io.flush()
-        orig_feed(self, data)
-      end
-
+    skip_or("compile-string returns :compilation-result", function()
       with_connection(function(done, fail)
-        client.rex({ "swank:compile-file-for-emacs", path, false }, function(result)
-          local ok, err = pcall(function()
-            assert.equals(":ok", result[1])
-            local cr = result[2]
-            assert.is_table(cr)
-            assert.equals(":compilation-result", cr[1])
+        -- compile-string-for-emacs is the inline-eval path (used by compile_form).
+        -- compile-file-for-emacs blocks SBCL in CI (no terminal for prompts).
+        client.rex(
+          { "swank:compile-string-for-emacs",
+            "(defun swank-nvim-test-fn (x) (* x x))",
+            "*swank-nvim-test*", 1, "/tmp/swank-nvim-test.lisp", nil },
+          function(result)
+            local ok, err = pcall(function()
+              assert.equals(":ok", result[1])
+              local cr = result[2]
+              assert.is_table(cr)
+              assert.equals(":compilation-result", cr[1])
+            end)
+            if ok then done() else fail(err) end
           end)
-          if ok then done() else fail(err) end
-        end)
       end)
-
-      transport_mod.Transport._feed = orig_feed
-      os.remove(path)
     end)
   end)
 end)
