@@ -175,7 +175,7 @@ describe("Swank integration", function()
         client.rex(
           { "swank:compile-string-for-emacs",
             "(defun swank-nvim-test-fn (x) (* x x))",
-            "*swank-nvim-test*", 1, "/tmp/swank-nvim-test.lisp", nil },
+            "*swank-nvim-test*", 1, "/tmp/swank-nvim-test.lisp", false },
           function(result)
             local ok, err = pcall(function()
               assert.equals(":ok", result[1])

@@ -460,7 +460,7 @@ function M.compile_form()
   if not form or form == "" then return end
   local bufname = vim.api.nvim_buf_get_name(0)
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  M.rex({ "swank:compile-string-for-emacs", form, bufname, col, row, nil }, function(result)
+  M.rex({ "swank:compile-string-for-emacs", form, bufname, col, row, false }, function(result)
     require("swank.ui.notes").show(result, bufname)
   end)
 end
