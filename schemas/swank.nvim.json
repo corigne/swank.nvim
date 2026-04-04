@@ -62,14 +62,21 @@
               "type": "string",
               "enum": ["auto", "right", "left", "top", "bottom", "float"],
               "default": "auto",
-              "description": "Where to open the REPL window. 'auto' selects based on editor width: ≥120 columns → right, ≥80 → bottom, else float."
+              "description": "Where to open the REPL window. 'auto' selects based on available layout space: resolved width ≥80 columns → right, else resolved height ≥12 lines → bottom, else float."
             },
             "size": {
               "type": "number",
-              "exclusiveMinimum": 0,
-              "maximum": 1,
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "exclusiveMinimum": 1
+                }
+              ],
               "default": 0.45,
-              "description": "Fraction of the editor width (for right/left) or height (for top/bottom/float) to allocate to the REPL window. Must be in the range (0, 1]."
+              "description": "REPL size as either a fraction of the editor width (for right/left) or height (for top/bottom/float) when in the range (0, 1], or as a fixed width/height in columns/rows when greater than 1."
             }
           }
         },
@@ -79,10 +86,31 @@
           "description": "Settings for floating windows (completions, documentation, REPL in float mode).",
           "properties": {
             "border": {
-              "type": "string",
-              "enum": ["none", "single", "double", "rounded", "solid", "shadow"],
               "default": "rounded",
-              "description": "Border style for floating windows. Values correspond to the 'border' option of nvim_open_win() — see :h nvim_open_win()."
+              "description": "Border style for floating windows. Accepts the standard named styles or a custom border array, matching the 'border' option of nvim_open_win() — see :h nvim_open_win().",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none", "single", "double", "rounded", "solid", "shadow"]
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "items": {
+                    "anyOf": [
+                      { "type": "string" },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 2,
+                        "items": [{ "type": "string" }, { "type": "string" }],
+                        "additionalItems": false
+                      }
+                    ]
+                  }
+                }
+              ]
             }
           }
         }

@@ -46,12 +46,12 @@ M.config = {}
 local function register_neoconf_schema()
   local ok, neoconf = pcall(require, "neoconf.plugins")
   if not ok then return end
+  local schema_files = vim.api.nvim_get_runtime_file("schemas/swank.nvim.json", false)
+  local schema_file = schema_files[1]
+  if not schema_file or schema_file == "" then return end
   neoconf.register({
     name = "swank.nvim",
-    schema = vim.fn.fnamemodify(
-      vim.api.nvim_get_runtime_file("schemas/swank.nvim.json", false)[1] or "",
-      ":p"
-    ),
+    schema = vim.fn.fnamemodify(schema_file, ":p"),
     key = "swank",
   })
 end
