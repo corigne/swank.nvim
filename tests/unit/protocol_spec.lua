@@ -168,3 +168,48 @@ describe("protocol.serialize", function()
     end
   end)
 end)
+
+describe("protocol.dispatch", function()
+  it("calls a registered handler with the full message", function()
+    local received
+    protocol.on(":test-evt", function(msg) received = msg end)
+    protocol.dispatch({ ":test-evt", 42, "hello" })
+    assert.same({ ":test-evt", 42, "hello" }, received)
+  end)
+
+  it("is case-insensitive (dispatches lowercase to uppercase-registered handler)", function()
+    local called = false
+    protocol.on(":UPPER-EVT", function() called = true end)
+    protocol.dispatch({ ":upper-evt" })
+    assert.is_true(called)
+  end)
+
+  it("does nothing for unregistered events without erroring", function()
+    assert.has_no_error(function()
+      protocol.dispatch({ ":no-such-event-xyz" })
+    end)
+  end)
+
+  it("does nothing for non-table messages without erroring", function()
+    assert.has_no_error(function()
+      protocol.dispatch("string")
+      protocol.dispatch(nil)
+      protocol.dispatch(42)
+    end)
+  end)
+
+  it("does nothing for a table with no first element", function()
+    assert.has_no_error(function()
+      protocol.dispatch({})
+    end)
+  end)
+
+  it("allows re-registering a handler for the same event", function()
+    local count = 0
+    protocol.on(":dup-evt", function() count = count + 1 end)
+    protocol.on(":dup-evt", function() count = count + 10 end)
+    protocol.dispatch({ ":dup-evt" })
+    -- second registration replaces first
+    assert.equals(10, count)
+  end)
+end)

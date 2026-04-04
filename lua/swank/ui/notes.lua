@@ -120,4 +120,8 @@ function M.show(result, source_path)
   end
 end
 
+-- Exported for testing
+M._plist = plist
+M._extract_location = extract_location
+
 return M

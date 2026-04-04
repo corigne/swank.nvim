@@ -96,13 +96,13 @@ jobs:
           git clone --depth 1 https://github.com/nvim-lua/plenary.nvim \
             ~/.local/share/nvim/lazy/plenary.nvim
 
-      - name: Install SBCL (latest)
+      - name: Install SBCL (latest, via roswell/sbcl_bin)
         run: |
-          SBCL_VERSION=$(curl -fsSL https://sourceforge.net/projects/sbcl/best_release.json \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)['release']['filename'].split('/')[2])")
+          SBCL_VERSION=$(curl -fsSL https://api.github.com/repos/roswell/sbcl_bin/releases/latest \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
           echo "Installing SBCL ${SBCL_VERSION}"
           curl -fL -o sbcl.tar.bz2 \
-            "https://downloads.sourceforge.net/project/sbcl/sbcl/${SBCL_VERSION}/sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2"
+            "https://github.com/roswell/sbcl_bin/releases/download/${SBCL_VERSION}/sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2"
           tar xjf sbcl.tar.bz2
           cd "sbcl-${SBCL_VERSION}-x86-64-linux" && sudo bash install.sh
           sbcl --version

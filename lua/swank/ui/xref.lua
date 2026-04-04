@@ -81,4 +81,8 @@ function M.show(result, kind)
   end
 end
 
+-- Exported for testing
+M._extract_location = extract_location
+M._refs_to_qflist   = refs_to_qflist
+
 return M

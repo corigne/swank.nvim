@@ -320,4 +320,9 @@ function M.continue()
   client().rex({ "swank:sldb-continue" }, function(_) end, nil, state.thread)
 end
 
+-- Exported for testing: expose state and build_content so sldb_spec can
+-- inject test state and verify rendered output without opening a window.
+M._state         = state
+M._build_content = build_content
+
 return M

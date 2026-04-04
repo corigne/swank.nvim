@@ -267,9 +267,7 @@ function M.open(result)
   end
 end
 
---- Close the inspector window without sending quit-inspector to Swank
-function M.close()
-  destroy()
-end
+-- Exported for testing
+M._render_content = render_content
 
 return M
