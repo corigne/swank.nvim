@@ -1,23 +1,266 @@
 *swank.nvim.txt*  Common Lisp development environment for Neovim
 
+Author:  corigne
+License: MIT
+Repo:    https://github.com/corigne/swank.nvim
+
 ==============================================================================
 CONTENTS                                                    *swank.nvim-contents*
 
   1. Introduction         |swank.nvim-introduction|
   2. Requirements         |swank.nvim-requirements|
   3. Setup                |swank.nvim-setup|
-  4. Usage                |swank.nvim-usage|
-  5. Configuration        |swank.nvim-configuration|
-  6. License              |swank.nvim-license|
+  4. Configuration        |swank.nvim-configuration|
+  5. Commands             |swank.nvim-commands|
+  6. Keybindings          |swank.nvim-keybindings|
+  7. REPL                 |swank.nvim-repl|
+  8. SLDB Debugger        |swank.nvim-sldb|
+  9. Inspector            |swank.nvim-inspector|
+  10. Trace Dialog        |swank.nvim-trace|
+  11. Completion          |swank.nvim-completion|
+  12. Compiler Notes      |swank.nvim-notes|
+  13. Contributing        |swank.nvim-contributing|
 
 ==============================================================================
 INTRODUCTION                                            *swank.nvim-introduction*
 
-swank.nvim is a Common Lisp development environment for Neovim, built on the
-Swank protocol. It aims for full SLIME-equivalent features using modern Neovim
-APIs throughout.
+swank.nvim is a pure-Lua Common Lisp development environment for Neovim,
+built on the Swank protocol — the same protocol used by SLIME and vlime.
 
-Documentation is a work in progress.
+It provides:
+  • Async TCP transport via `vim.uv` — no blocking, no Python helper
+  • REPL output buffer with eval / compile / load
+  • SLDB floating-window debugger with restart/frame navigation
+  • Object inspector with navigable parts
+  • Trace dialog (SWANK-TRACE-DIALOG contrib)
+  • Cross-reference → quickfix or direct jump
+  • Compiler notes via `vim.diagnostic`
+  • Arglist autodoc in the echo area
+  • Completion via blink.cmp (`swank:fuzzy-completions`)
+  • which-key group integration
+  • Autostart: spawn SBCL + Quicklisp, poll for port, connect
+
+==============================================================================
+REQUIREMENTS                                            *swank.nvim-requirements*
+
+  • Neovim 0.10 or later (0.13+ recommended)
+  • plenary.nvim (runtime + test dependency)
+  • SBCL with Quicklisp installed (for autostart)
+  • blink.cmp (optional — for completion)
+  • which-key.nvim (optional — for keymap groups)
+
+==============================================================================
+SETUP                                                          *swank.nvim-setup*
+
+lazy.nvim: >lua
+  {
+    "corigne/swank.nvim",
+    ft = { "lisp", "commonlisp" },
+    opts = {},   -- see |swank.nvim-configuration|
+  }
+<
+
+Manual: >lua
+  require("swank").setup({})
+<
+
+After setup, open a `.lisp` file and use `,rr` to start a Swank server and
+connect, or `,cc` to connect to an already-running server on the configured
+host/port.
+
+==============================================================================
+CONFIGURATION                                          *swank.nvim-configuration*
+
+Pass a table to `setup()` or `opts`. All fields are optional.
+
+Default configuration: >lua
+  require("swank").setup({
+    leader = ",",              -- keymap prefix (buffer-local)
+    server = {
+      host = "127.0.0.1",
+      port = 4005,
+    },
+    autostart = {
+      enabled = true,          -- spawn Lisp on attach
+      lisp    = "sbcl",        -- path/name of the Lisp binary
+    },
+    contribs = {               -- Swank contribs to load on connect
+      ":swank-repl",
+      ":swank-asdf",
+      ":swank-trace-dialog",
+    },
+    ui = {
+      floating = {
+        border = "rounded",    -- border style for all floating windows
+      },
+    },
+  })
+<
+
+==============================================================================
+COMMANDS                                                    *swank.nvim-commands*
+
+All commands are available after `setup()`.
+
+*:SwankConnect*
+  Connect to a Swank server. Prompts for host/port if not given.
+  Equivalent to `,cc`.
+
+*:SwankStart*
+  Spawn an SBCL process, wait for the port file, then connect.
+  Equivalent to `,rr`.
+
+*:SwankDisconnect*
+  Disconnect from the current Swank server.
+
+==============================================================================
+KEYBINDINGS                                              *swank.nvim-keybindings*
+
+All bindings are buffer-local and prefixed with `leader` (default `,`).
+
+CONNECTION ~
+  `,cc`   Connect to Swank server
+  `,rr`   Start server (autostart) and connect
+  `,cd`   Disconnect
+  `,cp`   Set current package (prompt)
+
+EVAL ~
+  `,ee`   Eval top-level form at cursor           (normal)
+  `,ee`   Eval selected region                    (visual)
+  `,ei`   Eval with prompt (interactive)
+
+REPL ~
+  `,rw`   Toggle REPL output window
+
+INTROSPECTION ~
+  `,id`   Describe symbol at cursor               (normal)
+  `,id`   Describe selected symbol                (visual)
+  `,ia`   Apropos search (prompt)
+  `,iA`   Apropos symbol at cursor
+  `,ia`   Apropos selected symbol                 (visual)
+  `,ii`   Inspect value at cursor
+
+XREF ~
+  `,xd`   Find definition of symbol at cursor
+  `,xc`   Who calls symbol at cursor
+  `,xr`   Who references symbol at cursor
+
+FILE / COMPILE ~
+  `,fl`   Load current file
+  `,fc`   Compile current file
+  `,fs`   Compile top-level form at cursor
+
+TRACE ~
+  `,tt`   Open trace dialog
+  `,td`   Toggle trace on symbol at cursor (prompt if not a symbol)
+  `,tD`   Untrace all functions
+  `,tc`   Clear trace entries
+  `,tg`   Refresh trace entries from Swank
+
+==============================================================================
+REPL                                                          *swank.nvim-repl*
+
+The REPL buffer (filetype `swank-repl`) is a read-only scratch buffer that
+accumulates output from `:write-string` events and eval results.
+
+Toggle it with `,rw`. Output from compiled forms, eval results, and frame
+locals from the debugger all appear here.
+
+==============================================================================
+SLDB DEBUGGER                                                  *swank.nvim-sldb*
+
+When a Swank `:debug` event arrives, a floating window opens showing:
+  • The condition message and type
+  • The available restarts, numbered from 0
+  • The backtrace frames
+
+SLDB keybindings (active inside the SLDB window): >
+  0-9     Invoke restart N
+  <CR>    Invoke restart under cursor
+  a / q   Abort (throw to toplevel)
+  c       Continue from current restart point
+  e       Eval expression in the selected frame (prompt)
+  v       View source of the selected frame
+  l       Show local variables for the selected frame
+<
+
+The window closes automatically when Swank sends `:debug-return`.
+
+==============================================================================
+INSPECTOR                                                  *swank.nvim-inspector*
+
+Opened with `,ii` (inspect value at cursor) or via eval.
+The inspector window shows the string representation of an object and its
+navigable parts (slots, elements, etc.).
+
+Inspector keybindings: >
+  <CR> / <Tab>   Follow part under cursor (inspect its value)
+  b / -          Go back to the previous object
+  r              Reinspect (refresh current view)
+  e              Eval in inspector context (prompt)
+  q / <Esc>      Quit inspector
+<
+
+==============================================================================
+TRACE DIALOG                                                   *swank.nvim-trace*
+
+Requires the `swank-trace-dialog` contrib (enabled by default in `contribs`).
+
+Open with `,tt`. The dialog accumulates trace entries as traced functions are
+called, showing call arguments and return values with depth indentation.
+
+Trace keybindings: >
+  t     Toggle trace on a function (prompt)
+  T     Untrace all functions
+  c     Clear all trace entries
+  g     Refresh from Swank
+  q     Close dialog
+<
+
+From a Lisp buffer, `,td` toggles tracing on the symbol at the cursor.
+
+==============================================================================
+COMPLETION                                                *swank.nvim-completion*
+
+swank.nvim registers a blink.cmp source named `"swank"`. Add it to your
+blink.cmp sources list: >lua
+  sources = {
+    default = { "lsp", "path", "snippets", "buffer", "swank" },
+    providers = {
+      swank = {
+        name    = "Swank",
+        module  = "swank.sources.blink",
+        enabled = function() return require("swank").is_connected() end,
+      },
+    },
+  }
+<
+
+Completion uses `swank:fuzzy-completions` and respects the current package.
+
+==============================================================================
+COMPILER NOTES                                                 *swank.nvim-notes*
+
+Compiler warnings and errors from `,fc` (compile file) and `,fs` (compile
+form) are shown via `vim.diagnostic`. Use standard Neovim diagnostic commands
+to navigate them:
+
+  `]d`    Next diagnostic
+  `[d`    Previous diagnostic
+  `:lua vim.diagnostic.open_float()`   Show diagnostic detail
+
+==============================================================================
+CONTRIBUTING                                            *swank.nvim-contributing*
+
+See CONTRIBUTING.md in the repository for:
+  • Running the test suite (`make test`, `make coverage`)
+  • Coverage requirements (80% floor, 100% goal)
+  • Code style guidelines
+  • How to write unit vs integration tests
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
+
 
 ==============================================================================
 LICENSE                                                    *swank.nvim-license*
