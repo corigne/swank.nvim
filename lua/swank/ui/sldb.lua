@@ -306,19 +306,21 @@ end
 function M.invoke_restart(n)
   client().rex(
     { "swank:invoke-nth-restart-for-emacs", state.level, n },
-    function(_) end
+    function(_) end,
+    nil,
+    state.thread
   )
   -- SLDB closes when Swank sends :debug-return
 end
 
---- Abort — throw to toplevel
+--- Abort — throw to toplevel; must run on the SLDB thread
 function M.abort()
-  client().rex({ "swank:throw-to-toplevel" }, function(_) end)
+  client().rex({ "swank:throw-to-toplevel" }, function(_) end, nil, state.thread)
 end
 
 --- Continue from the current restart point
 function M.continue()
-  client().rex({ "swank:sldb-continue" }, function(_) end)
+  client().rex({ "swank:sldb-continue" }, function(_) end, nil, state.thread)
 end
 
 return M

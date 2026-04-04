@@ -96,11 +96,15 @@ jobs:
           git clone --depth 1 https://github.com/nvim-lua/plenary.nvim \
             ~/.local/share/nvim/lazy/plenary.nvim
 
-      - name: Install SBCL 2.6.3
+      - name: Install SBCL (latest)
         run: |
-          curl -fL -o sbcl.tar.bz2 https://downloads.sourceforge.net/project/sbcl/sbcl/2.6.3/sbcl-2.6.3-x86-64-linux-binary.tar.bz2
+          SBCL_VERSION=$(curl -fsSL https://sourceforge.net/projects/sbcl/best_release.json \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['release']['filename'].split('/')[2])")
+          echo "Installing SBCL ${SBCL_VERSION}"
+          curl -fL -o sbcl.tar.bz2 \
+            "https://downloads.sourceforge.net/project/sbcl/sbcl/${SBCL_VERSION}/sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2"
           tar xjf sbcl.tar.bz2
-          cd sbcl-2.6.3-x86-64-linux && sudo bash install.sh
+          cd "sbcl-${SBCL_VERSION}-x86-64-linux" && sudo bash install.sh
           sbcl --version
 
       - name: Install Quicklisp

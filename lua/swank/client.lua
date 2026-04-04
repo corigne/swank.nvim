@@ -190,10 +190,11 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Send an :emacs-rex call and register a callback for the response
----@param form table  s-expression as a Lua table
+---@param form table      s-expression as a Lua table
 ---@param cb fun(result: any)
 ---@param pkg string|nil  package context
-function M.rex(form, cb, pkg)
+---@param thread any|nil  thread id from :debug (nil → true, meaning Swank picks)
+function M.rex(form, cb, pkg, thread)
   if not transport then
     vim.notify("swank.nvim: not connected", vim.log.levels.ERROR)
     return
@@ -204,7 +205,7 @@ function M.rex(form, cb, pkg)
     ":emacs-rex",
     form,
     pkg or current_package,
-    true,
+    thread ~= nil and thread or true,
     id,
   })
   transport:send(payload)
@@ -231,6 +232,8 @@ end)
 protocol.on(":debug", function(msg)
   require("swank.ui.sldb").open(msg)
 end)
+
+protocol.on(":debug-activate", function(_) end)
 
 protocol.on(":debug-return", function(_)
   require("swank.ui.sldb").close()
