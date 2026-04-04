@@ -460,7 +460,10 @@ function M.compile_form()
   if not form or form == "" then return end
   local bufname = vim.api.nvim_buf_get_name(0)
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  M.rex({ "swank:compile-string-for-emacs", form, bufname, col, row, false }, function(result)
+  -- position must be a list of location specs ((:line L C) or (:position N)),
+  -- not a plain integer — Swank's swank-compile-string uses assoc to extract them.
+  local position = { { ":line", row, col } }
+  M.rex({ "swank:compile-string-for-emacs", form, bufname, position, false, false }, function(result)
     require("swank.ui.notes").show(result, bufname)
   end)
 end
