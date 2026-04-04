@@ -1,0 +1,18 @@
+-- luacov configuration for swank.nvim
+-- Run: make coverage
+-- Report is written to luacov.report.out
+
+return {
+  -- Only instrument our own source files
+  include = {
+    "lua/swank/",
+  },
+  exclude = {
+    "tests/",
+    "plugin/",
+  },
+  statsfile  = "luacov.stats.out",
+  reportfile = "luacov.report.out",
+  -- Don't exit Lua when coverage is done; let Neovim handle teardown
+  runreport = false,
+}
