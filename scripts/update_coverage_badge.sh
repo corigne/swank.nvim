@@ -3,11 +3,17 @@
 # Reads luacov.report.out, extracts the Total coverage percentage,
 # picks a shields.io colour, and rewrites the coverage badge URL in README.md.
 # Called by `make badge` (which runs coverage first).
+#
+# Always resolves paths relative to the project root (parent of this script),
+# so it works correctly regardless of the caller's working directory.
 
 set -euo pipefail
 
-REPORT="${1:-luacov.report.out}"
-README="README.md"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+REPORT="${ROOT}/luacov.report.out"
+README="${ROOT}/README.md"
 
 if [[ ! -f "$REPORT" ]]; then
   echo "error: $REPORT not found — run 'make coverage' first" >&2

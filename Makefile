@@ -1,12 +1,13 @@
-BADGE_SCRIPT := scripts/update_coverage_badge.sh
+ROOT        := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+BADGE_SCRIPT := $(ROOT)/scripts/update_coverage_badge.sh
 
 .PHONY: test test-unit test-integration test-all coverage badge lint
 
 NVIM        ?= nvim
-INIT        := tests/minimal_init.lua
-COV_INIT    := tests/coverage_init.lua
-UNIT_DIR    := tests/unit
-INTEG_DIR   := tests/integration
+INIT        := $(ROOT)/tests/minimal_init.lua
+COV_INIT    := $(ROOT)/tests/coverage_init.lua
+UNIT_DIR    := $(ROOT)/tests/unit
+INTEG_DIR   := $(ROOT)/tests/integration
 LUACOV      := $(HOME)/.luarocks/bin/luacov
 
 # Run all unit tests (no server required)
@@ -28,15 +29,15 @@ test-all: test-unit test-integration
 
 # Run unit tests with luacov, then generate luacov.report.out
 coverage:
-	@rm -f luacov.stats.out luacov.report.out
-	$(NVIM) --headless -u $(COV_INIT) \
+	@rm -f $(ROOT)/luacov.stats.out $(ROOT)/luacov.report.out
+	cd $(ROOT) && $(NVIM) --headless -u $(COV_INIT) \
 	  -c "lua require('plenary.test_harness').test_directory('$(UNIT_DIR)', { minimal_init = '$(COV_INIT)' })" \
 	  -c "qa!"
-	$(LUACOV)
+	cd $(ROOT) && $(LUACOV)
 	@echo ""
 	@echo "=== Coverage summary ==="
-	@grep -E "[0-9]+\.[0-9]+%" luacov.report.out || cat luacov.report.out
+	@grep -E "[0-9]+\.[0-9]+%" $(ROOT)/luacov.report.out || cat $(ROOT)/luacov.report.out
 
 # Update the coverage badge in README.md (runs coverage first)
 badge: coverage
-	@bash $(BADGE_SCRIPT) luacov.report.out
+	@bash $(BADGE_SCRIPT)

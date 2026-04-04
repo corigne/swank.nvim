@@ -248,6 +248,17 @@ protocol.on(":ping", function(msg)
   end
 end)
 
+-- SWANK-TRACE-DIALOG events
+protocol.on(":trace-dialog-update", function(msg)
+  -- msg = (:trace-dialog-update specs entries)
+  -- specs is a list of traced spec names; entries is a list of trace records
+  local specs   = type(msg[2]) == "table" and msg[2] or {}
+  local batch   = type(msg[3]) == "table" and msg[3] or {}
+  local trace   = require("swank.ui.trace")
+  trace.set_specs(specs)
+  trace.push_entries(batch)
+end)
+
 -- ---------------------------------------------------------------------------
 -- Eval operations
 -- ---------------------------------------------------------------------------
@@ -360,6 +371,60 @@ end
 function M.quit_inspector()
   M.rex({ "swank:quit-inspector" }, function(_) end)
   require("swank.ui.inspector").close()
+end
+
+-- ---------------------------------------------------------------------------
+-- Trace dialog operations (SWANK-TRACE-DIALOG contrib)
+-- ---------------------------------------------------------------------------
+
+--- Toggle tracing of a function by name
+---@param sym string  function name, e.g. "MY-FUNC" or "my-package:my-func"
+function M.trace_toggle(sym)
+  M.rex({ "swank-trace-dialog:dialog-toggle-trace", sym }, function(result)
+    local trace = require("swank.ui.trace")
+    if type(result) == "table" and result[1] == ":ok" then
+      local specs = type(result[2]) == "table" and result[2] or {}
+      trace.set_specs(specs)
+      local names = {}
+      for _, s in ipairs(specs) do table.insert(names, tostring(s)) end
+      vim.notify("swank.nvim: tracing " .. table.concat(names, ", "), vim.log.levels.INFO)
+    end
+  end)
+end
+
+--- Untrace all traced functions
+function M.untrace_all()
+  M.rex({ "swank-trace-dialog:dialog-untrace-all" }, function(result)
+    if type(result) == "table" and result[1] == ":ok" then
+      require("swank.ui.trace").set_specs({})
+      vim.notify("swank.nvim: all functions untraced", vim.log.levels.INFO)
+    end
+  end)
+end
+
+--- Clear accumulated trace entries
+function M.clear_traces()
+  M.rex({ "swank-trace-dialog:clear-trace-tree" }, function(_)
+    require("swank.ui.trace").clear()
+  end)
+end
+
+--- Pull the latest trace entries from Swank and update the dialog
+function M.refresh_traces()
+  -- report-specs gives the list of traced names
+  M.rex({ "swank-trace-dialog:report-specs" }, function(result)
+    if type(result) == "table" and result[1] == ":ok" then
+      require("swank.ui.trace").set_specs(
+        type(result[2]) == "table" and result[2] or {})
+    end
+  end)
+  -- report-partial-tree gives pending entries (pass 0 to get all since last)
+  M.rex({ "swank-trace-dialog:report-partial-tree", 0 }, function(result)
+    if type(result) == "table" and result[1] == ":ok" then
+      require("swank.ui.trace").push_entries(
+        type(result[2]) == "table" and result[2] or {})
+    end
+  end)
 end
 
 --- Load current file

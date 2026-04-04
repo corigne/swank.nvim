@@ -101,6 +101,26 @@ function M.attach(bufnr, config)
   map("n", "fc", function() client.compile_file() end,  "Compile file")
   map("n", "fs", function() client.compile_form() end,  "Compile form at cursor")
 
+  -- ── Trace ─────────────────────────────────────────────────────────────────
+  map("n", "tt", function()
+    require("swank.ui.trace").open()
+  end, "Open trace dialog")
+
+  map("n", "td", function()
+    local sym = cword()
+    if sym then
+      client.trace_toggle(sym)
+    else
+      vim.ui.input({ prompt = "Trace function: " }, function(s)
+        if s and s ~= "" then client.trace_toggle(s) end
+      end)
+    end
+  end, "Toggle trace on symbol at cursor")
+
+  map("n", "tD", function() client.untrace_all() end,    "Untrace all")
+  map("n", "tc", function() client.clear_traces() end,   "Clear trace entries")
+  map("n", "tg", function() client.refresh_traces() end, "Refresh trace entries")
+
   -- ── which-key groups ─────────────────────────────────────────────────────
   local ok, wk = pcall(require, "which-key")
   if ok then
@@ -112,6 +132,7 @@ function M.attach(bufnr, config)
       { leader .. "x", buffer = bufnr, group = "xref" },
       { leader .. "f", buffer = bufnr, group = "file/compile" },
       { leader .. "c", buffer = bufnr, group = "connection" },
+      { leader .. "t", buffer = bufnr, group = "trace" },
     })
   end
 end
