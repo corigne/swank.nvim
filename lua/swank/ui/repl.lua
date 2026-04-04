@@ -60,16 +60,33 @@ function M.append(text)
   end
 end
 
+--- Show the expression that was sent (visual prompt line)
+---@param text string
+function M.show_input(text)
+  M.append("; " .. text:gsub("\n", "\n; ") .. "\n")
+end
+
 --- Show a Swank :return result in the REPL buffer
----@param result any  parsed :return payload (:ok value) or (:abort condition)
+--- Handles both plain (:ok value) and eval-and-grab-output (:ok (output value))
+---@param result any  parsed :return payload
 function M.show_result(result)
   if type(result) ~= "table" then return end
   local tag = tostring(result[1] or ""):lower()
   if tag == ":ok" then
-    M.append("=> " .. tostring(result[2] or "") .. "\n")
+    local val = result[2]
+    if type(val) == "table" then
+      -- eval-and-grab-output returns (output-string value-string)
+      local output = tostring(val[1] or "")
+      local value  = tostring(val[2] or "")
+      if output ~= "" then M.append(output) end
+      M.append("=> " .. value .. "\n")
+    else
+      M.append("=> " .. tostring(val or "") .. "\n")
+    end
   elseif tag == ":abort" then
-    M.append("; Aborted: " .. tostring(result[2] or "") .. "\n")
+    M.append("; Aborted" .. (result[2] and (": " .. tostring(result[2])) or "") .. "\n")
   end
+  M.append("\n")
 end
 
 return M

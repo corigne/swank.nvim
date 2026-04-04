@@ -103,8 +103,11 @@ function M.serialize(val)
   elseif t == "number" then
     return tostring(math.floor(val))
   elseif t == "string" then
-    -- if it looks like a symbol/keyword, emit as-is; otherwise quote as string
-    if val:match("^:[%a%d%-_]+$") or val:match("^[%a%d%-_%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~]+$") then
+    -- keywords start with ':', package-qualified symbols contain ':'
+    -- both emit as-is; anything with whitespace or parens is quoted
+    if val:match("^:[%a%d%-_%.]+$")
+      or val:match("^[%a%d%-_%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~][%a%d%-_%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~:]*$")
+    then
       return val
     else
       return '"' .. val:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'

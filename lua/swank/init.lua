@@ -8,7 +8,7 @@ local default_config = {
     host = "127.0.0.1",
     port = 4005,
   },
-  -- Automatically start SBCL + Swank server on attach
+  -- Automatically start SBCL + Swank server on first attach
   autostart = {
     enabled = true,
     implementation = "sbcl",
@@ -23,16 +23,16 @@ local default_config = {
       border = "rounded",
     },
   },
-  -- Swank contribs to load on connect
+  -- Swank contribs to load on connect (keyword symbol format)
   contribs = {
-    "SWANK-ASDF",
-    "SWANK-REPL",
-    "SWANK-FUZZY",
-    "SWANK-ARGLISTS",
-    "SWANK-FANCY-INSPECTOR",
-    "SWANK-TRACE-DIALOG",
-    "SWANK-C-P-C",
-    "SWANK-PACKAGE-FU",
+    ":swank-asdf",
+    ":swank-repl",
+    ":swank-fuzzy",
+    ":swank-arglists",
+    ":swank-fancy-inspector",
+    ":swank-trace-dialog",
+    ":swank-c-p-c",
+    ":swank-package-fu",
   },
 }
 
@@ -48,10 +48,14 @@ end
 ---@param bufnr integer
 function M.attach(bufnr)
   if not next(M.config) then
-    -- setup() was not called; use defaults
     M.config = default_config
   end
   require("swank.keymaps").attach(bufnr, M.config)
+
+  local client = require("swank.client")
+  if M.config.autostart.enabled and not client.is_connected() then
+    client.start_and_connect()
+  end
 end
 
 return M
