@@ -124,13 +124,12 @@ end
 
 local function frame_at_cursor()
   local row = vim.api.nvim_win_get_cursor(state.winnr)[1]
-  -- Find closest frame entry at or above cursor
-  for i = #state.frames, 1, -1 do
-    local f = state.frames[i]
-    -- frames are listed in order; check by number embedded in line
+  -- Walk up from cursor to find the nearest frame line ("  N: desc")
+  while row >= 1 do
     local line = vim.api.nvim_buf_get_lines(state.bufnr, row - 1, row, false)[1] or ""
-    local num = line:match("^%s*(%d+):")
+    local num = line:match("^%s+(%d+):")
     if num then return tonumber(num) end
+    row = row - 1
   end
   return 0
 end
@@ -183,9 +182,13 @@ local function setup_keymaps()
     client().rex(
       { "swank:frame-source-location", frame },
       function(result)
-        if type(result) == "table" and result[1] == ":ok" then
-          require("swank.ui.xref").show({{ "frame", result[2] }}, "frame source")
-        end
+        -- result = (:ok (:location (:file "...") (:line N col) nil))
+        --       or (:ok (:error "..."))
+        if type(result) ~= "table" or result[1] ~= ":ok" then return end
+        local loc = result[2]
+        if type(loc) ~= "table" then return end
+        -- Use xref's extract_location by wrapping as a single-entry refs list
+        require("swank.ui.xref").show({ ":ok", { { "frame " .. frame, loc } } }, "frame source")
       end
     )
   end, "View frame source")

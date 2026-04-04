@@ -322,12 +322,44 @@ function M.apropos(query)
   end)
 end
 
---- Inspect a value by symbol name
----@param sym string
-function M.inspect_value(sym)
-  M.rex({ "swank:inspect-value", sym }, function(result)
+--- Inspect a value by evaluating an expression string
+---@param expr string  expression to evaluate and inspect (e.g. "*", "SOME-VAR")
+function M.inspect_value(expr)
+  M.rex({ "swank:init-inspector", expr }, function(result)
     require("swank.ui.inspector").open(result)
   end)
+end
+
+--- Navigate to the Nth part inside the current inspector view
+---@param n integer  0-based index of the part to follow
+function M.inspect_nth_part(n)
+  M.rex({ "swank:inspect-nth-part", n }, function(result)
+    require("swank.ui.inspector").open(result)
+  end)
+end
+
+--- Go back to the previous inspector view
+function M.inspector_pop()
+  M.rex({ "swank:inspector-pop" }, function(result)
+    if type(result) == "table" and result[1] == ":ok" and result[2] then
+      require("swank.ui.inspector").open(result)
+    else
+      vim.notify("swank.nvim: already at the top of the inspector stack", vim.log.levels.INFO)
+    end
+  end)
+end
+
+--- Refresh the current inspector view
+function M.inspector_reinspect()
+  M.rex({ "swank:inspector-reinspect" }, function(result)
+    require("swank.ui.inspector").open(result)
+  end)
+end
+
+--- Quit the inspector
+function M.quit_inspector()
+  M.rex({ "swank:quit-inspector" }, function(_) end)
+  require("swank.ui.inspector").close()
 end
 
 --- Load current file
