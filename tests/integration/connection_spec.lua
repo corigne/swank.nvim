@@ -102,23 +102,12 @@ describe("Swank integration", function()
       end)
     end)
 
-    -- NOTE: testing :abort-on-unhandled-error is intentionally omitted.
-    -- Evaluating (/ 1 0) activates Swank's SLDB, which requires an interactive
-    -- restart choice to dismiss. In headless CI there is no way to invoke the
-    -- restart, so the debug session lingers on the server and corrupts subsequent
-    -- tests. SLDB behaviour is covered by sldb_spec (unit) and manual testing.
-
-    skip_or("returns :abort for an unhandled error", function()
-      with_connection(function(done)
-        -- sldb.open() auto-aborts when headless (no UI attached), so Swank
-        -- sends :return :abort and the callback fires normally.
-        client.rex({ "swank:eval-and-grab-output", "(/ 1 0)" }, function(result)
-          assert.is_table(result)
-          assert.is_not_nil(result[1])
-          done()
-        end)
-      end)
-    end)
+    -- NOTE: (/ 1 0) / SLDB tests are intentionally absent from integration.
+    -- Evaluating (/ 1 0) activates Swank SLDB on the eval thread. In headless
+    -- mode sldb.open() is a no-op (no UI), so the SLDB session stays open and
+    -- the eval never returns :abort. Aborting it via swank:throw-to-toplevel
+    -- from the test connection exhausts SBCL's worker threads and breaks all
+    -- subsequent tests. SLDB behaviour is covered by unit tests (sldb_spec).
 
 
     skip_or("set-package changes the current package", function()

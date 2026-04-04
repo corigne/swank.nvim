@@ -238,12 +238,9 @@ function M.open(msg)
   state.frames   = type(msg[6]) == "table" and msg[6] or {}
 
   -- In headless mode (no UI attached) there is no window to open.
-  -- Auto-abort to dismiss the SLDB session so the server doesn't linger
-  -- in a debug state and block subsequent RPC responses.
+  -- Silently ignore the :debug event; the SLDB session remains on its own
+  -- thread and does not block evals that run on separate worker threads.
   if #vim.api.nvim_list_uis() == 0 then
-    vim.notify("swank.nvim: SLDB level " .. state.level .. " (headless — auto-aborting)",
-      vim.log.levels.DEBUG)
-    M.abort()
     return
   end
 
