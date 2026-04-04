@@ -15,6 +15,8 @@ local connection_state = "disconnected"
 ---@type integer|nil  jobstart job id for the sbcl process
 local sbcl_job_id = nil
 
+---@type string[]  stderr lines collected during sbcl startup; shown only on error exit
+local stderr_log = {}
 ---@type integer  monotonically increasing message ID
 local msg_id = 0
 
@@ -118,7 +120,7 @@ function M.start_and_connect()
       on_stderr = function(_, data)
         for _, line in ipairs(data) do
           if line ~= "" then
-            vim.notify("sbcl: " .. line, vim.log.levels.WARN)
+            table.insert(stderr_log, line)
           end
         end
       end,
@@ -126,8 +128,13 @@ function M.start_and_connect()
         sbcl_job_id = nil
         if connection_state ~= "connected" then
           connection_state = "disconnected"
-          vim.notify("swank.nvim: sbcl exited (code " .. code .. ")", vim.log.levels.ERROR)
+          local tail = table.concat(stderr_log, "\n")
+          vim.notify(
+            "swank.nvim: sbcl exited (code " .. code .. ")\n" .. tail,
+            vim.log.levels.ERROR
+          )
         end
+        stderr_log = {}
       end,
     }
   )
@@ -683,6 +690,7 @@ function M._test_reset()
   current_package  = "COMMON-LISP-USER"
   callbacks        = {}
   msg_id           = 0
+  stderr_log       = {}
 end
 
 return M
