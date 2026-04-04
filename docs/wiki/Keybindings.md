@@ -3,7 +3,7 @@
 All keymaps are buffer-local and only active in `lisp` / `commonlisp` buffers
 once `require("swank").attach(bufnr)` has been called.
 
-The `<Space>` prefix is the `<leader>` key (configurable — see below).
+The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configuration](Configuration)).
 
 ---
 
@@ -13,7 +13,8 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 |------|--------|--------|
 | n | `<Space>sc` | Connect to Swank server |
 | n | `<Space>sd` | Disconnect |
-| n | `<Space>sr` | Reconnect |
+| n | `<Space>sp` | Set current CL package (prompts) |
+| n | `<Space>rr` | Start CL implementation + connect (autostart) |
 
 ---
 
@@ -21,11 +22,9 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>ee` | Eval top-level form (the outermost `(...)` around cursor) |
+| n | `<Space>ee` | Eval top-level form (outermost `(...)` around cursor) |
 | v | `<Space>ee` | Eval visual selection |
 | n | `<Space>ei` | Eval expression interactively (prompts for input) |
-| n | `<Space>eb` | Eval entire buffer |
-| n | `<Space>el` | Eval current line |
 
 ---
 
@@ -33,9 +32,7 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>ro` | Open / focus REPL window |
-| n | `<Space>rc` | Clear REPL buffer |
-| n | `<Space>rp` | Switch CL package (prompts for package name) |
+| n | `<Space>rw` | Toggle REPL window |
 
 ---
 
@@ -43,9 +40,12 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>ds` | Describe symbol under cursor (floating popup) |
-| n | `<Space>is` | Inspect value of symbol under cursor |
-| n/i | `<Space>aa` | Autodoc — show argument list for operator at cursor |
+| n | `<Space>id` | Describe symbol under cursor |
+| v | `<Space>id` | Describe selected symbol |
+| n | `<Space>ia` | Apropos (prompts for query) |
+| n | `<Space>iA` | Apropos symbol under cursor |
+| v | `<Space>ia` | Apropos selected symbol |
+| n | `<Space>ii` | Inspect value of symbol under cursor |
 
 ---
 
@@ -59,18 +59,31 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 ---
 
-## Compilation
+## File / Compilation
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>cd` | Compile defun (top-level form) under cursor |
-| n | `<Space>cf` | Compile and load file |
+| n | `<Space>fl` | Load file into Lisp image |
+| n | `<Space>fc` | Compile file |
+| n | `<Space>fs` | Compile form at cursor |
+
+---
+
+## Trace
+
+| Mode | Keymap | Action |
+|------|--------|--------|
+| n | `<Space>tt` | Open trace dialog |
+| n | `<Space>td` | Toggle trace on symbol under cursor (prompts if none) |
+| n | `<Space>tD` | Untrace all |
+| n | `<Space>tc` | Clear trace entries |
+| n | `<Space>tg` | Refresh trace entries |
 
 ---
 
 ## LSP-compatible overrides
 
-These are set as buffer-local overrides so standard editor muscle-memory works:
+Buffer-local overrides so standard editor muscle-memory works in Lisp buffers:
 
 | Mode | Keymap | Action | Standard LSP equivalent |
 |------|--------|--------|------------------------|
@@ -94,10 +107,8 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function(ev)
     require("swank").attach(ev.buf)
     -- override eval-toplevel to a different key
-    vim.keymap.set("n", "<Space>x", function()
-      require("swank.client"):eval_toplevel(
-        require("swank.keymaps")._form_at_cursor()
-      )
+    vim.keymap.set("n", "<LocalLeader>E", function()
+      require("swank.client").eval_toplevel()
     end, { buffer = ev.buf })
   end,
 })
@@ -111,10 +122,11 @@ If which-key is installed, swank.nvim registers group labels automatically:
 
 | Prefix | Label |
 |--------|-------|
-| `<Space>s` | Swank |
-| `<Space>e` | Eval |
-| `<Space>r` | REPL |
-| `<Space>d` | Describe |
-| `<Space>i` | Inspect |
-| `<Space>x` | XRef |
-| `<Space>c` | Compile |
+| `<Space>` | swank |
+| `<Space>s` | connection |
+| `<Space>e` | eval |
+| `<Space>r` | repl/server |
+| `<Space>i` | inspect |
+| `<Space>x` | xref |
+| `<Space>f` | file/compile |
+| `<Space>t` | trace |

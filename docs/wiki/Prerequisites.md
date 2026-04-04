@@ -85,7 +85,7 @@ Start it:
 sbcl --load ~/.config/swank/start.lisp
 ```
 
-Then connect from Neovim with `<LocalLeader>cc` (connect only) or `<LocalLeader>rr` (start SBCL + connect).
+Then connect from Neovim with `<LocalLeader>sc` (connect only) or `<LocalLeader>rr` (start SBCL + connect).
 `<LocalLeader>` is `<Space>` if you set `maplocalleader = " "`.
 
 ### Using autostart

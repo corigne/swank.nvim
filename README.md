@@ -90,8 +90,8 @@ After that, load and start Swank from a file (recommended — keep this in your 
 sbcl --load start-swank.lisp
 ```
 
-Then connect from Neovim with `<LocalLeader>cc` (connect) or `<LocalLeader>rr` (start SBCL + connect).
-If you set `maplocalleader = " "`, those become `<Space>cc` and `<Space>rr`.
+Then connect from Neovim with `<LocalLeader>sc` (connect) or `<LocalLeader>rr` (start SBCL + connect).
+If you set `maplocalleader = " "`, those become `<Space>sc` and `<Space>rr`.
 
 ### Without Quicklisp (SBCL only)
 
@@ -264,10 +264,10 @@ All `<Leader>` bindings are buffer-local and prefixed with the configured `leade
 
 | Key | Mode | Action |
 |-----|------|--------|
-| `<Leader>cc` | n | Connect to Swank server |
+| `<Leader>sc` | n | Connect to Swank server |
 | `<Leader>rr` | n | Start SBCL and connect |
-| `<Leader>cd` | n | Disconnect |
-| `<Leader>cp` | n | Set current package |
+| `<Leader>sd` | n | Disconnect |
+| `<Leader>sp` | n | Set current package |
 | `<Leader>ee` | n | Eval top-level form |
 | `<Leader>ee` | v | Eval region |
 | `<Leader>ei` | n | Eval (prompt) |
