@@ -1,0 +1,54 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/wiki/**"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Push docs/wiki to GitHub Wiki
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          WIKI_URL="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.wiki.git"
+
+          # Try to clone; if the wiki is empty/uninitialized, init locally instead
+          if git clone "$WIKI_URL" wiki 2>/dev/null; then
+            echo "Wiki cloned successfully"
+          else
+            echo "Wiki not yet initialized — creating fresh repo"
+            mkdir wiki
+            cd wiki
+            git init
+            git remote add origin "$WIKI_URL"
+            cd ..
+          fi
+
+          # Copy all pages (strip .md extension is NOT needed — GitHub wiki uses .md files)
+          cp docs/wiki/*.md wiki/
+
+          cd wiki
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to push"
+          else
+            git commit -m "docs: sync wiki from docs/wiki/"
+            git push --force origin HEAD:master
+            echo "Wiki updated"
+          fi
