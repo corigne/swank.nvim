@@ -1,0 +1,27 @@
+*swank.nvim.txt*  Common Lisp development environment for Neovim
+
+==============================================================================
+CONTENTS                                                    *swank.nvim-contents*
+
+  1. Introduction         |swank.nvim-introduction|
+  2. Requirements         |swank.nvim-requirements|
+  3. Setup                |swank.nvim-setup|
+  4. Usage                |swank.nvim-usage|
+  5. Configuration        |swank.nvim-configuration|
+  6. License              |swank.nvim-license|
+
+==============================================================================
+INTRODUCTION                                            *swank.nvim-introduction*
+
+swank.nvim is a Common Lisp development environment for Neovim, built on the
+Swank protocol. It aims for full SLIME-equivalent features using modern Neovim
+APIs throughout.
+
+Documentation is a work in progress.
+
+==============================================================================
+LICENSE                                                    *swank.nvim-license*
+
+MIT. See LICENSE in the project root.
+
+vim:tw=78:ts=8:ft=help:norl:
