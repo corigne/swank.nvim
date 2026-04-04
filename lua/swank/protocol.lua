@@ -103,11 +103,15 @@ function M.serialize(val)
   elseif t == "number" then
     return tostring(math.floor(val))
   elseif t == "string" then
-    -- keywords start with ':', package-qualified symbols contain ':'
-    -- both emit as-is; anything with whitespace or parens is quoted
-    if val:match("^:[%a%d%-_%.]+$")
-      or val:match("^[%a%d%-_%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~][%a%d%-_%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~:]*$")
-    then
+    -- Only emit as an unquoted symbol when the string is:
+    --   1. a keyword   — starts with ':'  e.g. :ok, :swank-repl
+    --   2. package-qualified — contains ':' e.g. swank:eval-and-grab-output
+    --   3. an explicit CL operator we embed literally (QUOTE)
+    -- Everything else (package names, symbol strings passed as args) is quoted.
+    local is_symbol = val:match("^:[%a%d%-_%.]+$")        -- keyword
+      or val:match("^[^:]+:[%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#][%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#:]*$") -- pkg:sym
+      or val == "QUOTE"
+    if is_symbol then
       return val
     else
       return '"' .. val:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'

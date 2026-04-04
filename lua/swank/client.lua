@@ -541,11 +541,12 @@ end
 function M._is_symbol_like(text)
   if not text or text == "" then return false end
   local trimmed = text:match("^%s*(.-)%s*$")
-  -- Must be a single non-empty token with no internal whitespace
-  -- Valid CL symbol chars: letters, digits, and: + - * / @ $ % ^ & _ = < > ~ . ! ? | : #
-  return trimmed ~= ""
-    and not trimmed:find("%s")
-    and trimmed:match("^[%a%d%+%-%*%/%@%$%%%%^%&%_%=%<%>%~%.%!%?%|:#]+$") ~= nil
+  if trimmed == "" or trimmed:find("%s") then return false end
+  -- Reject bare numbers (integers and floats) — not valid symbol names
+  if trimmed:match("^%-?%d+%.?%d*$") then return false end
+  -- Must contain only valid CL symbol chars: letters, digits, and punctuation
+  -- used in CL identifiers. Colon allowed for package-qualified names.
+  return trimmed:match("^[%a%d%+%-%*%/%@%$%%%%^%&%_%=%<%>%~%.%!%?%|:#]+$") ~= nil
 end
 
 --- Convert a flat plist to a Lua table keyed by lowercased keyword
