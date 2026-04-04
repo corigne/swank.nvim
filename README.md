@@ -65,7 +65,8 @@ swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built
     ui = {
       repl = {
         -- "auto"|"right"|"left"|"top"|"bottom"|"float"
-        -- "auto" picks based on editor width: >=120 cols→right, >=80→bottom, else float
+        -- "auto" tries vertical split first (if REPL would get ≥80 cols),
+        -- then horizontal split, then float as a last resort
         position = "auto",
         size = 0.45,  -- fraction (0–1) or fixed columns/rows
       },

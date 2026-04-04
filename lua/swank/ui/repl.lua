@@ -5,10 +5,10 @@
 --   position  "auto"|"right"|"left"|"top"|"bottom"|"float"  default: "auto"
 --   size      0 < n <= 1 → fraction of editor dim; n > 1 → fixed cols/rows
 --
--- "auto" layout selection:
---   columns >= 120  →  right vertical split  (side panel)
---   columns >= 80   →  bottom horizontal split
---   else            →  floating window
+-- "auto" layout priority (always tries to give the REPL ≥80 columns):
+--   1. right vertical split   — if floor(columns * size) >= 80
+--   2. bottom horizontal split — fallback when the terminal is too narrow
+--   3. floating window         — last resort when the terminal is very small
 
 local M = {}
 
@@ -39,11 +39,14 @@ local function resolve_size(size, total)
   return math.max(1, math.floor(size))
 end
 
---- Resolve "auto" to a concrete position based on current editor dimensions
+--- Resolve "auto" to a concrete position.
+-- Vertical split is preferred; we fall back only when the REPL panel would
+-- be narrower than 80 columns.  Horizontal split is the next option; float
+-- is the last resort for very small terminals.
 local function effective_pos(pos, size)
   if pos ~= "auto" then return pos end
-  if vim.o.columns >= 120 then return "right" end
-  if vim.o.columns >= 80  then return "bottom" end
+  if resolve_size(size, vim.o.columns) >= 80 then return "right" end
+  if resolve_size(size, vim.o.lines)   >= 12 then return "bottom" end
   return "float"
 end
 
