@@ -113,4 +113,23 @@ describe("transport send framing", function()
     assert.equals(1, #received2)
     assert.equals(payload, received2[1])
   end)
+
+  it("send() with no handle emits a notification and does not error", function()
+    local t, _ = make_transport()
+    -- t.handle is nil (never connected)
+    local notified = false
+    local orig_notify = vim.notify
+    vim.notify = function(msg, _level) notified = true; _ = msg end
+    assert.has_no.errors(function() t:send("(hello)") end)
+    vim.notify = orig_notify
+    assert.is_true(notified, "expected vim.notify to be called when not connected")
+  end)
+end)
+
+describe("transport disconnect", function()
+  it("disconnect() is a no-op when never connected", function()
+    local t, _ = make_transport()
+    assert.has_no.errors(function() t:disconnect() end)
+    assert.is_nil(t.handle)
+  end)
 end)

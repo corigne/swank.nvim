@@ -2,6 +2,9 @@
 
 local repl = require("swank.ui.repl")
 
+-- Cache the real append before any describe block mocks it
+local real_append = repl.append
+
 describe("repl", function()
   local captured = {}
 
@@ -83,5 +86,64 @@ describe("repl", function()
       local out = all_output()
       assert.equals("\n", out:sub(-1))
     end)
+  end)
+end)
+
+-- ── repl.append real buffer ──────────────────────────────────────────────────
+-- These tests exercise the actual M.append / ensure_buf code paths (not mocked).
+
+describe("repl.append (direct buffer)", function()
+  local saved_append
+
+  before_each(function()
+    saved_append = repl.append
+    repl.append = real_append
+  end)
+
+  after_each(function()
+    repl.append = saved_append
+  end)
+
+  local function buf_lines()
+    local buf = vim.fn.bufnr("swank://repl")
+    if buf == -1 then return {} end
+    return vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  end
+
+  local function lines_contain(text)
+    for _, l in ipairs(buf_lines()) do
+      if l:find(text, 1, true) then return true end
+    end
+    return false
+  end
+
+  it("creates the swank://repl buffer on first call", function()
+    repl.append("test-create-buffer\n")
+    assert.is_true(vim.fn.bufnr("swank://repl") ~= -1)
+  end)
+
+  it("appended text appears in the buffer", function()
+    repl.append("sentinel-abc-123\n")
+    assert.is_true(lines_contain("sentinel-abc-123"))
+  end)
+
+  it("multi-line text is split into separate buffer lines", function()
+    repl.append("line-alpha\nline-beta\nline-gamma\n")
+    assert.is_true(lines_contain("line-alpha"))
+    assert.is_true(lines_contain("line-beta"))
+    assert.is_true(lines_contain("line-gamma"))
+  end)
+
+  it("successive calls accumulate in the same buffer", function()
+    repl.append("first-call\n")
+    repl.append("second-call\n")
+    assert.is_true(lines_contain("first-call"))
+    assert.is_true(lines_contain("second-call"))
+  end)
+
+  it("buffer is non-modifiable after append", function()
+    repl.append("modifiable-check\n")
+    local buf = vim.fn.bufnr("swank://repl")
+    assert.is_false(vim.bo[buf].modifiable)
   end)
 end)

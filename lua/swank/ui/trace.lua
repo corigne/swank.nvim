@@ -241,4 +241,8 @@ function M.close()
   destroy()
 end
 
+-- Exported for unit testing only
+M._render_entry = render_entry
+M._build_lines  = build_lines
+
 return M
