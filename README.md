@@ -1,7 +1,7 @@
 # swank.nvim
 
 [![CI](https://github.com/corigne/swank.nvim/actions/workflows/ci.yml/badge.svg)](https://github.com/corigne/swank.nvim/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-45%25-orange?style=flat-square&logo=lua)](luacov.report.out)
+[![Coverage](https://img.shields.io/badge/coverage-82%25-green?style=flat-square&logo=lua)](luacov.report.out)
 
 A modern, pure-Lua Common Lisp development environment for Neovim, built on the [Swank](https://github.com/slime/slime/blob/master/swank-backend.lisp) protocol.
 

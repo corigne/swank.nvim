@@ -132,4 +132,41 @@ describe("transport disconnect", function()
     assert.has_no.errors(function() t:disconnect() end)
     assert.is_nil(t.handle)
   end)
+
+  it("disconnect() with a mock handle closes it and clears the field", function()
+    local t, _ = make_transport()
+    local closed = false
+    t.handle = { close = function() closed = true end }
+    t:disconnect()
+    assert.is_true(closed, "expected handle:close() to be called")
+    assert.is_nil(t.handle)
+  end)
+end)
+
+describe("transport _on_close", function()
+  it("clears handle and calls on_disconnect callback", function()
+    local disconnected = false
+    local t = transport_mod.Transport.new(
+      function(_) end,
+      function() disconnected = true end
+    )
+    -- Simulate having a handle (doesn't need to be real)
+    t.handle = { close = function() end }
+    t:_on_close()
+    assert.is_nil(t.handle)
+    assert.is_true(disconnected, "expected on_disconnect to be called")
+  end)
+end)
+
+describe("transport _feed bad frame", function()
+  it("emits a warning and resets buffer on non-hex length prefix", function()
+    local t, _ = make_transport()
+    local notified = false
+    local orig = vim.notify
+    vim.notify = function(msg, _) if msg:find("bad message frame") then notified = true end end
+    t:_feed("XXXXXX(garbage)")  -- 'XXXXXX' is not valid hex
+    vim.notify = orig
+    assert.is_true(notified, "expected bad-frame warning")
+    assert.equals("", t.buffer)  -- buffer reset on bad frame
+  end)
 end)

@@ -671,4 +671,18 @@ function M._plist(lst)
   return t
 end
 
+-- Test-only injection hooks (do not call from production code)
+function M._test_inject(fake_transport)
+  transport        = fake_transport
+  connection_state = "connected"
+end
+
+function M._test_reset()
+  transport        = nil
+  connection_state = "disconnected"
+  current_package  = "COMMON-LISP-USER"
+  callbacks        = {}
+  msg_id           = 0
+end
+
 return M

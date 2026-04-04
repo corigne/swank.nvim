@@ -27,6 +27,8 @@ test-integration:
 # Run everything
 test-all: test-unit test-integration
 
+MIN_COV     := 80
+
 # Run unit tests with luacov, then generate luacov.report.out
 coverage:
 	@rm -f $(ROOT)/luacov.stats.out $(ROOT)/luacov.report.out
@@ -37,6 +39,13 @@ coverage:
 	@echo ""
 	@echo "=== Coverage summary ==="
 	@grep -E "[0-9]+\.[0-9]+%" $(ROOT)/luacov.report.out || cat $(ROOT)/luacov.report.out
+	@echo ""
+	@TOTAL=$$(awk '/^Total/{gsub(/%/,"",$$NF); print int($$NF)}' $(ROOT)/luacov.report.out); \
+	echo "=== Total: $${TOTAL}% (minimum: $(MIN_COV)%) ==="; \
+	if [ "$${TOTAL}" -lt "$(MIN_COV)" ]; then \
+	  echo "FAIL: coverage $${TOTAL}% is below the $(MIN_COV)% minimum (CONTRIBUTING.md)"; \
+	  exit 1; \
+	fi
 
 # Update the coverage badge in README.md (runs coverage first)
 badge: coverage
