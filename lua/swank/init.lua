@@ -2,7 +2,7 @@ local M = {}
 
 local default_config = {
   -- Key prefix for all swank.nvim keymaps
-  leader = "<LocalLeader>",
+  leader = "<Leader>",
   -- Swank server connection defaults
   server = {
     host = "127.0.0.1",

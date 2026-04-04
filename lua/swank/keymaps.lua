@@ -32,10 +32,10 @@ function M.attach(bufnr, config)
   end
 
   -- ── Connection ───────────────────────────────────────────────────────────
-  map("n", "cc", function() client.connect() end,            "Connect to Swank")
+  map("n", "lc", function() client.connect() end,            "Connect to Swank")
   map("n", "rr", function() client.start_and_connect() end,  "Start server and connect")
-  map("n", "cd", function() client.disconnect() end,         "Disconnect")
-  map("n", "cp", function() client.set_package_interactive() end, "Set package")
+  map("n", "ld", function() client.disconnect() end,         "Disconnect")
+  map("n", "lp", function() client.set_package_interactive() end, "Set package")
 
   -- ── Eval ─────────────────────────────────────────────────────────────────
   map("n", "ee", function() client.eval_toplevel() end,      "Eval top-level form")
@@ -167,7 +167,7 @@ function M.attach(bufnr, config)
       { leader .. "i", buffer = bufnr, group = "inspect" },
       { leader .. "x", buffer = bufnr, group = "xref" },
       { leader .. "f", buffer = bufnr, group = "file/compile" },
-      { leader .. "c", buffer = bufnr, group = "connection" },
+      { leader .. "l", buffer = bufnr, group = "connection" },
       { leader .. "t", buffer = bufnr, group = "trace" },
     })
   end

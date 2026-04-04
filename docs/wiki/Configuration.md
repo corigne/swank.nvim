@@ -15,8 +15,8 @@ automatically during `setup()`, enabling completions and validation in `.neoconf
 
 ```lua
 require("swank").setup({
-  -- Key prefix for all swank.nvim keymaps (default: "<LocalLeader>")
-  leader = "<LocalLeader>",
+  -- Key prefix for all swank.nvim keymaps (default: "<Leader>")
+  leader = "<Leader>",
 
   -- Swank server connection settings
   server = {
@@ -61,7 +61,7 @@ require("swank").setup({
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `leader` | `string` | `"<LocalLeader>"` | Prefix for all swank.nvim keymaps |
+| `leader` | `string` | `"<Leader>"` | Prefix for all swank.nvim keymaps |
 | `server` | `table` | see below | Connection settings |
 | `autostart` | `table` | see below | Autostart settings |
 | `ui` | `table` | see below | Window and layout settings |
@@ -98,7 +98,7 @@ require("swank").setup({
 })
 ```
 
-Then connect with `<LocalLeader>cc` (or `<LocalLeader>rr` to start + connect).
+Then connect with `<Leader>lc` (or `<Leader>rr` to start + connect).
 
 ---
 
@@ -188,7 +188,7 @@ require("swank").setup({
   "corigne/swank.nvim",
   ft   = { "lisp", "commonlisp" },
   opts = {
-    leader    = "<LocalLeader>",
+    leader    = "<Leader>",
     autostart = { enabled = true, implementation = "sbcl" },
     ui        = { repl = { position = "auto", size = 0.45 } },
   },

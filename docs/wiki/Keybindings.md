@@ -1,9 +1,7 @@
 # Keybindings
 
-All keymaps are buffer-local and only active in `lisp` / `commonlisp` buffers
-once `require("swank").attach(bufnr)` has been called.
-
-The `<Space>` prefix is the `<leader>` key (configurable — see below).
+All keymaps use `<Leader>` as the prefix. Set `mapleader` in your Neovim config to choose your preferred key.
+See [Configuration](Configuration) for setup details.
 
 ---
 
@@ -11,9 +9,10 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>sc` | Connect to Swank server |
-| n | `<Space>sd` | Disconnect |
-| n | `<Space>sr` | Reconnect |
+| n | `<Leader>lc` | Connect to Swank server |
+| n | `<Leader>ld` | Disconnect |
+| n | `<Leader>lp` | Set current CL package (prompts) |
+| n | `<Leader>rr` | Start configured CL implementation and connect (autostart) |
 
 ---
 
@@ -21,11 +20,9 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>ee` | Eval top-level form (the outermost `(...)` around cursor) |
-| v | `<Space>ee` | Eval visual selection |
-| n | `<Space>ei` | Eval expression interactively (prompts for input) |
-| n | `<Space>eb` | Eval entire buffer |
-| n | `<Space>el` | Eval current line |
+| n | `<Leader>ee` | Eval top-level form (outermost `(...)` around cursor) |
+| v | `<Leader>ee` | Eval visual selection |
+| n | `<Leader>ei` | Eval expression interactively (prompts for input) |
 
 ---
 
@@ -33,9 +30,7 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>ro` | Open / focus REPL window |
-| n | `<Space>rc` | Clear REPL buffer |
-| n | `<Space>rp` | Switch CL package (prompts for package name) |
+| n | `<Leader>rw` | Toggle REPL window |
 
 ---
 
@@ -43,9 +38,12 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>ds` | Describe symbol under cursor (floating popup) |
-| n | `<Space>is` | Inspect value of symbol under cursor |
-| n/i | `<Space>aa` | Autodoc — show argument list for operator at cursor |
+| n | `<Leader>id` | Describe symbol under cursor |
+| v | `<Leader>id` | Describe selected symbol |
+| n | `<Leader>ia` | Apropos (prompts for query) |
+| n | `<Leader>iA` | Apropos symbol under cursor |
+| v | `<Leader>ia` | Apropos selected symbol |
+| n | `<Leader>ii` | Inspect value of symbol under cursor |
 
 ---
 
@@ -53,24 +51,37 @@ The `<Space>` prefix is the `<leader>` key (configurable — see below).
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>xc` | Who calls symbol under cursor |
-| n | `<Space>xr` | Who references symbol under cursor |
-| n | `<Space>xd` | Find definition of symbol under cursor |
+| n | `<Leader>xc` | Who calls symbol under cursor |
+| n | `<Leader>xr` | Who references symbol under cursor |
+| n | `<Leader>xd` | Find definition of symbol under cursor |
 
 ---
 
-## Compilation
+## File / Compilation
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>cd` | Compile defun (top-level form) under cursor |
-| n | `<Space>cf` | Compile and load file |
+| n | `<Leader>fl` | Load file into Lisp image |
+| n | `<Leader>fc` | Compile file |
+| n | `<Leader>fs` | Compile form at cursor |
+
+---
+
+## Trace
+
+| Mode | Keymap | Action |
+|------|--------|--------|
+| n | `<Leader>tt` | Open trace dialog |
+| n | `<Leader>td` | Toggle trace on symbol under cursor (prompts if none) |
+| n | `<Leader>tD` | Untrace all |
+| n | `<Leader>tc` | Clear trace entries |
+| n | `<Leader>tg` | Refresh trace entries |
 
 ---
 
 ## LSP-compatible overrides
 
-These are set as buffer-local overrides so standard editor muscle-memory works:
+Buffer-local overrides so standard editor muscle-memory works in Lisp buffers:
 
 | Mode | Keymap | Action | Standard LSP equivalent |
 |------|--------|--------|------------------------|
@@ -94,10 +105,8 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function(ev)
     require("swank").attach(ev.buf)
     -- override eval-toplevel to a different key
-    vim.keymap.set("n", "<Space>x", function()
-      require("swank.client"):eval_toplevel(
-        require("swank.keymaps")._form_at_cursor()
-      )
+    vim.keymap.set("n", "<Leader>E", function()
+      require("swank.client").eval_toplevel()
     end, { buffer = ev.buf })
   end,
 })
@@ -111,10 +120,11 @@ If which-key is installed, swank.nvim registers group labels automatically:
 
 | Prefix | Label |
 |--------|-------|
-| `<Space>s` | Swank |
-| `<Space>e` | Eval |
-| `<Space>r` | REPL |
-| `<Space>d` | Describe |
-| `<Space>i` | Inspect |
-| `<Space>x` | XRef |
-| `<Space>c` | Compile |
+| `<Leader>` | swank |
+| `<Leader>l` | connection |
+| `<Leader>e` | eval |
+| `<Leader>r` | repl/server |
+| `<Leader>i` | inspect |
+| `<Leader>x` | xref |
+| `<Leader>f` | file/compile |
+| `<Leader>t` | trace |

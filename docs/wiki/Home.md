@@ -56,7 +56,7 @@ sbcl --load start-swank.lisp
 ### 4. Connect from Neovim
 
 ```
-<Space>sc  (Connect to Swank server)
+<Leader>lc  (Connect to Swank server)
 ```
 
 ---

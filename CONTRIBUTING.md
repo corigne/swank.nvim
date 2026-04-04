@@ -26,10 +26,25 @@ luarocks install luacov-reporter-lcov --local --lua-version 5.1
 make test          # unit tests only (no server required)
 make test-integration  # integration tests (requires Swank on 127.0.0.1:4005)
 make test-all      # both
-make coverage      # unit tests + luacov report
+make coverage      # unit tests + luacov report (enforces 80% gate)
+make badge         # coverage + update README badge
 ```
 
 The integration tests auto-skip when no server is reachable — `SWANK_PORT` overrides the default port.
+
+---
+
+## CI
+
+Every PR and push to `main` runs three jobs:
+
+| Job | Trigger | What it does |
+|-----|---------|--------------|
+| **Unit tests** | always | `make test` against Neovim stable |
+| **Coverage** | after unit | `make coverage` — fails if total < 80% |
+| **Integration tests** | always (parallel) | Installs SBCL + Quicklisp, starts Swank on :4005, runs `make test-integration` |
+
+All three must be green before a PR can be merged.
 
 ---
 
@@ -132,4 +147,4 @@ If coverage drops below 80 % for any file you touched, the PR description must e
 
 ## Architecture
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) (Phase 6, in progress) for a full walkthrough of how the transport, protocol, client, UI, and keymap layers fit together.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for a full walkthrough of how the transport, protocol, client, UI, and keymap layers fit together.
