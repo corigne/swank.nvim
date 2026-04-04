@@ -237,6 +237,16 @@ function M.open(msg)
   state.restarts = type(msg[5]) == "table" and msg[5] or {}
   state.frames   = type(msg[6]) == "table" and msg[6] or {}
 
+  -- In headless mode (no UI attached) there is no window to open.
+  -- Auto-abort to dismiss the SLDB session so the server doesn't linger
+  -- in a debug state and block subsequent RPC responses.
+  if #vim.api.nvim_list_uis() == 0 then
+    vim.notify("swank.nvim: SLDB level " .. state.level .. " (headless — auto-aborting)",
+      vim.log.levels.DEBUG)
+    M.abort()
+    return
+  end
+
   -- Reuse buffer if already open, otherwise create fresh
   destroy()
 
@@ -256,7 +266,8 @@ function M.open(msg)
   end
 
   -- Floating window centred in editor
-  local cfg = require("swank").config.ui.floating
+  local swank_cfg = require("swank").config
+  local cfg = (swank_cfg and swank_cfg.ui and swank_cfg.ui.floating) or {}
   local width  = math.min(math.floor(vim.o.columns * 0.7), 90)
   local height = math.min(#lines + 2, math.floor(vim.o.lines * 0.6))
   local row    = math.floor((vim.o.lines - height) / 2)

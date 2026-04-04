@@ -108,7 +108,19 @@ describe("Swank integration", function()
     -- restart, so the debug session lingers on the server and corrupts subsequent
     -- tests. SLDB behaviour is covered by sldb_spec (unit) and manual testing.
 
-    skip_or("set-package changes the current package", function()
+    skip_or("returns :abort for an unhandled error", function()
+      with_connection(function(done)
+        -- sldb.open() auto-aborts when headless (no UI attached), so Swank
+        -- sends :return :abort and the callback fires normally.
+        client.rex({ "swank:eval-and-grab-output", "(/ 1 0)" }, function(result)
+          assert.is_table(result)
+          assert.is_not_nil(result[1])
+          done()
+        end)
+      end)
+    end)
+
+
       with_connection(function(done)
         client.rex({ "swank:set-package", "COMMON-LISP-USER" }, function(result)
           assert.equals(":ok", result[1])
