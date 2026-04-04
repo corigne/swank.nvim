@@ -7,18 +7,16 @@ local here = debug.getinfo(1, "S").source:sub(2):match("^(.*[/\\])")
   or "./"
 
 return {
-  -- Only instrument the core (non-UI, non-keymap) source files.
-  -- UI modules (lua/swank/ui/) and keymaps.lua require a real editor window and
-  -- are excluded from the coverage gate per CONTRIBUTING.md.
+  -- Instrument all plugin source files except those requiring a real editor
+  -- window (ui/ and keymaps.lua) per CONTRIBUTING.md.
   include = {
-    "lua/swank/client",
-    "lua/swank/init",
-    "lua/swank/protocol",
-    "lua/swank/transport",
+    "lua/swank/",
   },
   exclude = {
     "tests/",
     "plugin/",
+    "lua/swank/ui/",
+    "lua/swank/keymaps",
   },
   statsfile  = here .. "luacov.stats.out",
   reportfile = here .. "luacov.report.out",
