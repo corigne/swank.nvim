@@ -1256,3 +1256,99 @@ describe("M.start_and_connect()", function()
     assert.is_true(notified, "expected a 'starting' notification before jobstart")
   end)
 end)
+
+-- impl_cli_flags selection
+-- ---------------------------------------------------------------------------
+
+describe("M.start_and_connect() impl_cli_flags", function()
+  local captured_argv
+  local orig_jobstart
+  local orig_notify
+
+  before_each(function()
+    captured_argv = nil
+    orig_jobstart = vim.fn.jobstart
+    orig_notify   = vim.notify
+    vim.fn.jobstart = function(argv, _opts)
+      captured_argv = argv
+      return -1  -- signal "failed to start" so start_and_connect cleans up
+    end
+    vim.notify = function() end  -- suppress output
+  end)
+
+  after_each(function()
+    vim.fn.jobstart = orig_jobstart
+    vim.notify      = orig_notify
+    client._test_reset()
+    require("swank").config = {}
+  end)
+
+  local function run_with_impl(impl)
+    require("swank").config = {
+      autostart = { enabled = true, implementation = impl },
+      server    = { host = "127.0.0.1", port = 4005 },
+      contribs  = {},
+    }
+    pcall(function() client.start_and_connect() end)
+  end
+
+  it("uses SBCL flags for 'sbcl'", function()
+    run_with_impl("sbcl")
+    assert.is_not_nil(captured_argv)
+    assert.equals("sbcl",              captured_argv[1])
+    assert.equals("--noinform",        captured_argv[2])
+    assert.equals("--non-interactive", captured_argv[3])
+    assert.equals("--load",            captured_argv[4])
+  end)
+
+  it("uses CCL flags for 'ccl'", function()
+    run_with_impl("ccl")
+    assert.is_not_nil(captured_argv)
+    assert.equals("ccl",     captured_argv[1])
+    assert.equals("--quiet", captured_argv[2])
+    assert.equals("--batch", captured_argv[3])
+    assert.equals("--load",  captured_argv[4])
+  end)
+
+  it("uses ECL flags for 'ecl'", function()
+    run_with_impl("ecl")
+    assert.is_not_nil(captured_argv)
+    assert.equals("ecl",    captured_argv[1])
+    assert.equals("--norc", captured_argv[2])
+    assert.equals("--load", captured_argv[3])
+  end)
+
+  it("uses ABCL flags for 'abcl'", function()
+    run_with_impl("abcl")
+    assert.is_not_nil(captured_argv)
+    assert.equals("abcl",    captured_argv[1])
+    assert.equals("--batch", captured_argv[2])
+    assert.equals("--load",  captured_argv[3])
+  end)
+
+  it("falls back to SBCL flags for unknown implementations", function()
+    run_with_impl("some-unknown-lisp")
+    assert.is_not_nil(captured_argv)
+    assert.equals("some-unknown-lisp", captured_argv[1])
+    assert.equals("--noinform",        captured_argv[2])
+    assert.equals("--non-interactive", captured_argv[3])
+    assert.equals("--load",            captured_argv[4])
+  end)
+
+  it("matches implementation by basename when a full path is given", function()
+    run_with_impl("/usr/bin/sbcl")
+    assert.is_not_nil(captured_argv)
+    assert.equals("/usr/bin/sbcl",     captured_argv[1])
+    assert.equals("--noinform",        captured_argv[2])
+    assert.equals("--non-interactive", captured_argv[3])
+    assert.equals("--load",            captured_argv[4])
+  end)
+
+  it("matches ccl by basename from full path", function()
+    run_with_impl("/usr/local/bin/ccl")
+    assert.is_not_nil(captured_argv)
+    assert.equals("--quiet", captured_argv[2])
+    assert.equals("--batch", captured_argv[3])
+  end)
+end)
+

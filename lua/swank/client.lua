@@ -127,7 +127,7 @@ function M.start_and_connect()
   local flags = impl_cli_flags[impl_name] or impl_cli_flags.sbcl
   -- flags ends with "--load"; append the script path
   local argv = { impl }
-  for _, f in ipairs(flags) do table.insert(argv, f) end
+  for _, flag in ipairs(flags) do table.insert(argv, flag) end
   table.insert(argv, script_file)
 
   connection_state = "connecting"
