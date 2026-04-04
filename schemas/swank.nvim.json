@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/corigne/swank.nvim/main/schemas/swank.nvim.json",
+  "title": "swank.nvim configuration",
+  "description": "Configuration schema for swank.nvim — a Neovim-native Common Lisp development environment built on the Swank protocol.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "leader": {
+      "type": "string",
+      "default": "<LocalLeader>",
+      "description": "Key prefix for all swank.nvim keymaps. Must be a valid Neovim key sequence string."
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Swank server connection settings for manual/external server connections.",
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "Hostname or IP address of the Swank server."
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 4005,
+          "description": "Port of the Swank server. Only used when connecting to an external server (autostart = false or swank.attach())."
+        }
+      }
+    },
+    "autostart": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Controls automatic startup of a local CL implementation + Swank server when a Lisp buffer is opened.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, swank.nvim will automatically launch the configured CL implementation and connect on first FileType lisp/cl event."
+        },
+        "implementation": {
+          "type": "string",
+          "default": "sbcl",
+          "examples": ["sbcl", "ccl", "ecl", "abcl", "/usr/local/bin/sbcl"],
+          "description": "Name or full path of the CL implementation binary to launch. Basename is used for flag selection: sbcl, ccl, ecl, and abcl have built-in flag profiles. Unknown implementations fall back to SBCL-style flags."
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "UI layout and appearance settings.",
+      "properties": {
+        "repl": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "REPL window settings.",
+          "properties": {
+            "position": {
+              "type": "string",
+              "enum": ["auto", "right", "left", "top", "bottom", "float"],
+              "default": "auto",
+              "description": "Where to open the REPL window. 'auto' selects based on available layout space: resolved width ≥80 columns → right, else resolved height ≥12 lines → bottom, else float."
+            },
+            "size": {
+              "type": "number",
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "exclusiveMinimum": 1
+                }
+              ],
+              "default": 0.45,
+              "description": "REPL size as either a fraction of the editor width (for right/left) or height (for top/bottom/float) when in the range (0, 1], or as a fixed width/height in columns/rows when greater than 1."
+            }
+          }
+        },
+        "floating": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Settings for floating windows (completions, documentation, REPL in float mode).",
+          "properties": {
+            "border": {
+              "default": "rounded",
+              "description": "Border style for floating windows. Accepts the standard named styles or a custom border array, matching the 'border' option of nvim_open_win() — see :h nvim_open_win().",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none", "single", "double", "rounded", "solid", "shadow"]
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "items": {
+                    "anyOf": [
+                      { "type": "string" },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 2,
+                        "items": [{ "type": "string" }, { "type": "string" }],
+                        "additionalItems": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "contribs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^:"
+      },
+      "default": [
+        ":swank-asdf",
+        ":swank-repl",
+        ":swank-fuzzy",
+        ":swank-arglists",
+        ":swank-fancy-inspector",
+        ":swank-trace-dialog",
+        ":swank-c-p-c",
+        ":swank-package-fu"
+      ],
+      "description": "List of Swank contrib modules to load on connect, in keyword symbol format (e.g. ':swank-repl'). Passed to swank:load-contribs on the server side."
+    }
+  }
+}
