@@ -41,7 +41,7 @@ swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built
 - [x] Compiler notes → `vim.diagnostic`
 - [x] Trace dialog (SWANK-TRACE-DIALOG)
 - [x] which-key integration
-- [x] Autostart: spawn sbcl + Quicklisp when `require("swank").attach()` is called (typically from a `FileType` autocmd)
+- [x] Autostart: spawn a CL implementation + Quicklisp when `require("swank").attach()` is called (typically from a `FileType` autocmd)
 
 ## Prerequisites
 
@@ -122,7 +122,7 @@ If you want to manage the Swank server yourself (remote machines, custom setups,
 (swank:create-server :port 4005 :dont-close t)
 ```
 
-Then connect from Neovim with `<LocalLeader>sc` (or `<Space>sc` if your
+Then connect from Neovim with `<LocalLeader>lc` (or `<Space>lc` if your
 `maplocalleader` is space).
 
 ---
@@ -279,10 +279,10 @@ All `<Leader>` bindings are buffer-local and prefixed with the configured `leade
 
 | Key | Mode | Action |
 |-----|------|--------|
-| `<Leader>sc` | n | Connect to Swank server |
-| `<Leader>rr` | n | Start SBCL and connect |
-| `<Leader>sd` | n | Disconnect |
-| `<Leader>sp` | n | Set current package |
+| `<Leader>lc` | n | Connect to Swank server |
+| `<Leader>rr` | n | Start configured CL implementation and connect |
+| `<Leader>ld` | n | Disconnect |
+| `<Leader>lp` | n | Set current package |
 | `<Leader>ee` | n | Eval top-level form |
 | `<Leader>ee` | v | Eval region |
 | `<Leader>ei` | n | Eval (prompt) |

@@ -111,7 +111,7 @@ setups, or `autostart.enabled = false`), start it from your CL image:
 (swank:create-server :port 4005 :dont-close t)
 ```
 
-Then connect from Neovim with `<LocalLeader>sc` (`<Space>sc` if your
+Then connect from Neovim with `<LocalLeader>lc` (`<Space>lc` if your
 `maplocalleader` is space).
 
 Port **4005** is the default for external servers. If you use autostart, the

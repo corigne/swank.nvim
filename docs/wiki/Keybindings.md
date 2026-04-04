@@ -3,7 +3,8 @@
 All keymaps are buffer-local and only active in `lisp` / `commonlisp` buffers
 once `require("swank").attach(bufnr)` has been called.
 
-The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configuration](Configuration)).
+The examples below use `<Space>` as the prefix, assuming `maplocalleader = " "`.
+The actual prefix is `<LocalLeader>` and is configurable — see [Configuration](Configuration).
 
 ---
 
@@ -11,10 +12,10 @@ The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configura
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>sc` | Connect to Swank server |
-| n | `<Space>sd` | Disconnect |
-| n | `<Space>sp` | Set current CL package (prompts) |
-| n | `<Space>rr` | Start CL implementation + connect (autostart) |
+| n | `<LocalLeader>lc` | Connect to Swank server |
+| n | `<LocalLeader>ld` | Disconnect |
+| n | `<LocalLeader>lp` | Set current CL package (prompts) |
+| n | `<LocalLeader>rr` | Start configured CL implementation and connect (autostart) |
 
 ---
 
@@ -22,9 +23,9 @@ The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configura
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>ee` | Eval top-level form (outermost `(...)` around cursor) |
-| v | `<Space>ee` | Eval visual selection |
-| n | `<Space>ei` | Eval expression interactively (prompts for input) |
+| n | `<LocalLeader>ee` | Eval top-level form (outermost `(...)` around cursor) |
+| v | `<LocalLeader>ee` | Eval visual selection |
+| n | `<LocalLeader>ei` | Eval expression interactively (prompts for input) |
 
 ---
 
@@ -32,7 +33,7 @@ The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configura
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>rw` | Toggle REPL window |
+| n | `<LocalLeader>rw` | Toggle REPL window |
 
 ---
 
@@ -40,12 +41,12 @@ The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configura
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>id` | Describe symbol under cursor |
-| v | `<Space>id` | Describe selected symbol |
-| n | `<Space>ia` | Apropos (prompts for query) |
-| n | `<Space>iA` | Apropos symbol under cursor |
-| v | `<Space>ia` | Apropos selected symbol |
-| n | `<Space>ii` | Inspect value of symbol under cursor |
+| n | `<LocalLeader>id` | Describe symbol under cursor |
+| v | `<LocalLeader>id` | Describe selected symbol |
+| n | `<LocalLeader>ia` | Apropos (prompts for query) |
+| n | `<LocalLeader>iA` | Apropos symbol under cursor |
+| v | `<LocalLeader>ia` | Apropos selected symbol |
+| n | `<LocalLeader>ii` | Inspect value of symbol under cursor |
 
 ---
 
@@ -53,9 +54,9 @@ The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configura
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>xc` | Who calls symbol under cursor |
-| n | `<Space>xr` | Who references symbol under cursor |
-| n | `<Space>xd` | Find definition of symbol under cursor |
+| n | `<LocalLeader>xc` | Who calls symbol under cursor |
+| n | `<LocalLeader>xr` | Who references symbol under cursor |
+| n | `<LocalLeader>xd` | Find definition of symbol under cursor |
 
 ---
 
@@ -63,9 +64,9 @@ The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configura
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>fl` | Load file into Lisp image |
-| n | `<Space>fc` | Compile file |
-| n | `<Space>fs` | Compile form at cursor |
+| n | `<LocalLeader>fl` | Load file into Lisp image |
+| n | `<LocalLeader>fc` | Compile file |
+| n | `<LocalLeader>fs` | Compile form at cursor |
 
 ---
 
@@ -73,11 +74,11 @@ The `<Space>` prefix is the `<LocalLeader>` key (configurable — see [Configura
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<Space>tt` | Open trace dialog |
-| n | `<Space>td` | Toggle trace on symbol under cursor (prompts if none) |
-| n | `<Space>tD` | Untrace all |
-| n | `<Space>tc` | Clear trace entries |
-| n | `<Space>tg` | Refresh trace entries |
+| n | `<LocalLeader>tt` | Open trace dialog |
+| n | `<LocalLeader>td` | Toggle trace on symbol under cursor (prompts if none) |
+| n | `<LocalLeader>tD` | Untrace all |
+| n | `<LocalLeader>tc` | Clear trace entries |
+| n | `<LocalLeader>tg` | Refresh trace entries |
 
 ---
 
@@ -122,11 +123,11 @@ If which-key is installed, swank.nvim registers group labels automatically:
 
 | Prefix | Label |
 |--------|-------|
-| `<Space>` | swank |
-| `<Space>s` | connection |
-| `<Space>e` | eval |
-| `<Space>r` | repl/server |
-| `<Space>i` | inspect |
-| `<Space>x` | xref |
-| `<Space>f` | file/compile |
-| `<Space>t` | trace |
+| `<LocalLeader>` | swank |
+| `<LocalLeader>l` | connection |
+| `<LocalLeader>e` | eval |
+| `<LocalLeader>r` | repl/server |
+| `<LocalLeader>i` | inspect |
+| `<LocalLeader>x` | xref |
+| `<LocalLeader>f` | file/compile |
+| `<LocalLeader>t` | trace |

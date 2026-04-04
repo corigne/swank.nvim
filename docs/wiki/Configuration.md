@@ -98,7 +98,7 @@ require("swank").setup({
 })
 ```
 
-Then connect with `<LocalLeader>cc` (or `<LocalLeader>rr` to start + connect).
+Then connect with `<LocalLeader>lc` (or `<LocalLeader>rr` to start + connect).
 
 ---
 
