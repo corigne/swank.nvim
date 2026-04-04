@@ -34,7 +34,9 @@ function M:get_completions(ctx, callback)
     return
   end
 
-  local prefix = symbol_prefix(ctx.cursor_before_line)
+  -- blink context: ctx.line is the full line, ctx.cursor is {row, col}
+  local line_before = ctx.line and ctx.line:sub(1, ctx.cursor and ctx.cursor[2] or 0) or ""
+  local prefix = symbol_prefix(line_before)
   if prefix == "" then
     callback({ items = {}, isIncomplete = false })
     return
