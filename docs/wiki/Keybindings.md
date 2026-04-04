@@ -1,6 +1,6 @@
 # Keybindings
 
-All keymaps use `<LocalLeader>` as the prefix. Set `maplocalleader` in your Neovim config to choose your preferred key.
+All keymaps use `<Leader>` as the prefix. Set `mapleader` in your Neovim config to choose your preferred key.
 See [Configuration](Configuration) for setup details.
 
 ---
@@ -9,10 +9,10 @@ See [Configuration](Configuration) for setup details.
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<LocalLeader>lc` | Connect to Swank server |
-| n | `<LocalLeader>ld` | Disconnect |
-| n | `<LocalLeader>lp` | Set current CL package (prompts) |
-| n | `<LocalLeader>rr` | Start configured CL implementation and connect (autostart) |
+| n | `<Leader>lc` | Connect to Swank server |
+| n | `<Leader>ld` | Disconnect |
+| n | `<Leader>lp` | Set current CL package (prompts) |
+| n | `<Leader>rr` | Start configured CL implementation and connect (autostart) |
 
 ---
 
@@ -20,9 +20,9 @@ See [Configuration](Configuration) for setup details.
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<LocalLeader>ee` | Eval top-level form (outermost `(...)` around cursor) |
-| v | `<LocalLeader>ee` | Eval visual selection |
-| n | `<LocalLeader>ei` | Eval expression interactively (prompts for input) |
+| n | `<Leader>ee` | Eval top-level form (outermost `(...)` around cursor) |
+| v | `<Leader>ee` | Eval visual selection |
+| n | `<Leader>ei` | Eval expression interactively (prompts for input) |
 
 ---
 
@@ -30,7 +30,7 @@ See [Configuration](Configuration) for setup details.
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<LocalLeader>rw` | Toggle REPL window |
+| n | `<Leader>rw` | Toggle REPL window |
 
 ---
 
@@ -38,12 +38,12 @@ See [Configuration](Configuration) for setup details.
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<LocalLeader>id` | Describe symbol under cursor |
-| v | `<LocalLeader>id` | Describe selected symbol |
-| n | `<LocalLeader>ia` | Apropos (prompts for query) |
-| n | `<LocalLeader>iA` | Apropos symbol under cursor |
-| v | `<LocalLeader>ia` | Apropos selected symbol |
-| n | `<LocalLeader>ii` | Inspect value of symbol under cursor |
+| n | `<Leader>id` | Describe symbol under cursor |
+| v | `<Leader>id` | Describe selected symbol |
+| n | `<Leader>ia` | Apropos (prompts for query) |
+| n | `<Leader>iA` | Apropos symbol under cursor |
+| v | `<Leader>ia` | Apropos selected symbol |
+| n | `<Leader>ii` | Inspect value of symbol under cursor |
 
 ---
 
@@ -51,9 +51,9 @@ See [Configuration](Configuration) for setup details.
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<LocalLeader>xc` | Who calls symbol under cursor |
-| n | `<LocalLeader>xr` | Who references symbol under cursor |
-| n | `<LocalLeader>xd` | Find definition of symbol under cursor |
+| n | `<Leader>xc` | Who calls symbol under cursor |
+| n | `<Leader>xr` | Who references symbol under cursor |
+| n | `<Leader>xd` | Find definition of symbol under cursor |
 
 ---
 
@@ -61,9 +61,9 @@ See [Configuration](Configuration) for setup details.
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<LocalLeader>fl` | Load file into Lisp image |
-| n | `<LocalLeader>fc` | Compile file |
-| n | `<LocalLeader>fs` | Compile form at cursor |
+| n | `<Leader>fl` | Load file into Lisp image |
+| n | `<Leader>fc` | Compile file |
+| n | `<Leader>fs` | Compile form at cursor |
 
 ---
 
@@ -71,11 +71,11 @@ See [Configuration](Configuration) for setup details.
 
 | Mode | Keymap | Action |
 |------|--------|--------|
-| n | `<LocalLeader>tt` | Open trace dialog |
-| n | `<LocalLeader>td` | Toggle trace on symbol under cursor (prompts if none) |
-| n | `<LocalLeader>tD` | Untrace all |
-| n | `<LocalLeader>tc` | Clear trace entries |
-| n | `<LocalLeader>tg` | Refresh trace entries |
+| n | `<Leader>tt` | Open trace dialog |
+| n | `<Leader>td` | Toggle trace on symbol under cursor (prompts if none) |
+| n | `<Leader>tD` | Untrace all |
+| n | `<Leader>tc` | Clear trace entries |
+| n | `<Leader>tg` | Refresh trace entries |
 
 ---
 
@@ -105,7 +105,7 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function(ev)
     require("swank").attach(ev.buf)
     -- override eval-toplevel to a different key
-    vim.keymap.set("n", "<LocalLeader>E", function()
+    vim.keymap.set("n", "<Leader>E", function()
       require("swank.client").eval_toplevel()
     end, { buffer = ev.buf })
   end,
@@ -120,11 +120,11 @@ If which-key is installed, swank.nvim registers group labels automatically:
 
 | Prefix | Label |
 |--------|-------|
-| `<LocalLeader>` | swank |
-| `<LocalLeader>l` | connection |
-| `<LocalLeader>e` | eval |
-| `<LocalLeader>r` | repl/server |
-| `<LocalLeader>i` | inspect |
-| `<LocalLeader>x` | xref |
-| `<LocalLeader>f` | file/compile |
-| `<LocalLeader>t` | trace |
+| `<Leader>` | swank |
+| `<Leader>l` | connection |
+| `<Leader>e` | eval |
+| `<Leader>r` | repl/server |
+| `<Leader>i` | inspect |
+| `<Leader>x` | xref |
+| `<Leader>f` | file/compile |
+| `<Leader>t` | trace |

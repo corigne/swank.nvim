@@ -122,7 +122,7 @@ If you want to manage the Swank server yourself (remote machines, custom setups,
 (swank:create-server :port 4005 :dont-close t)
 ```
 
-Then connect from Neovim with `<LocalLeader>lc`.
+Then connect from Neovim with `<Leader>lc`.
 
 ---
 
@@ -135,8 +135,8 @@ Then connect from Neovim with `<LocalLeader>lc`.
   "corigne/swank.nvim",
   ft = { "lisp", "commonlisp" },
   opts = {
-    -- leader prefix for all swank keybindings (default: "<LocalLeader>")
-    leader = "<LocalLeader>",
+    -- leader prefix for all swank keybindings (default: "<Leader>")
+    leader = "<Leader>",
     server = {
       host = "127.0.0.1",
       port = 4005,
@@ -274,7 +274,7 @@ are the recommended paths.)*
 
 ## Default keybindings
 
-All `<Leader>` bindings are buffer-local and prefixed with the configured `leader` (default `<LocalLeader>`).
+All `<Leader>` bindings are buffer-local and prefixed with the configured `leader` (default `<Leader>`).
 
 | Key | Mode | Action |
 |-----|------|--------|
