@@ -449,7 +449,7 @@ function M.compile_file()
     vim.notify("swank.nvim: buffer has no file path", vim.log.levels.WARN)
     return
   end
-  M.rex({ "swank:compile-file", path, false }, function(result)
+  M.rex({ "swank:compile-file-for-emacs", path, false }, function(result)
     require("swank.ui.notes").show(result, path)
   end)
 end

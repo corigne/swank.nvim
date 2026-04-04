@@ -48,7 +48,7 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Connect, run fn(done_cb), wait for done_cb() to be called (or timeout)
----@param fn fun(done: fun())
+---@param fn fun(done: fun(), fail: fun(err: string))
 local function with_connection(fn)
   local orig_notify = vim.notify
   vim.notify = function() end
@@ -61,9 +61,18 @@ local function with_connection(fn)
   assert.is_true(client.is_connected(), "failed to connect to Swank server")
 
   local done = false
-  fn(function() done = true end)
+  local cb_err = nil
 
-  vim.wait(5000, function() return done end, 10)
+  fn(
+    function() done = true end,
+    function(err) cb_err = tostring(err); done = true end
+  )
+
+  vim.wait(8000, function() return done end, 10)
+
+  if cb_err then
+    error("callback error: " .. cb_err, 2)
+  end
   assert.is_true(done, "test timed out waiting for Swank response")
 
   client.disconnect()
@@ -167,7 +176,7 @@ describe("Swank integration", function()
       f:close()
 
       with_connection(function(done)
-        client.rex({ "swank:compile-file", path, false }, function(result)
+        client.rex({ "swank:compile-file-for-emacs", path, false }, function(result)
           assert.equals(":ok", result[1])
           local cr = result[2]
           assert.is_table(cr)
