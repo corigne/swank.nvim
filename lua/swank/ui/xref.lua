@@ -75,20 +75,27 @@ local function show_with_telescope(entries, kind)
   local conf         = require("telescope.config").values
   local actions      = require("telescope.actions")
   local action_state = require("telescope.actions.state")
+  local themes       = require("telescope.themes")
 
-  pickers.new({}, {
+  local opts = themes.get_dropdown{}
+
+  pickers.new(opts, {
     prompt_title = "swank: " .. kind,
     finder = finders.new_table({
       results = entries,
       entry_maker = function(e)
         return {
           value   = e,
-          display = e.text .. "  " .. e.filename .. ":" .. e.lnum,
+          display = function(entry)
+            return entry.value.text .. "  " .. entry.value.filename .. ":" .. entry.value.lnum
+          end,
           ordinal = e.text .. " " .. e.filename,
+          path    = e.filename,
+          lnum    = e.lnum,
         }
       end,
     }),
-    sorter = conf.generic_sorter({}),
+    sorter = conf.generic_sorter(opts),
     attach_mappings = function(prompt_bufnr)
       actions.select_default:replace(function()
         local entry = action_state.get_selected_entry()
