@@ -109,7 +109,7 @@ require("swank").setup({
 
 ### ASDF
 
-ASDF is bundled with SBCL, CCL, and most modern implementations — no separate
+ASDF is bundled with SBCL, CCL, and most modern implementations. No separate
 install needed. Required for the `swank-asdf` contrib (project-aware compilation).
 
 ### Advanced: connecting to an existing server
@@ -173,7 +173,7 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-**Requires:** Neovim 0.10+ — see [Prerequisites](#prerequisites) above
+**Requires:** Neovim 0.10+. See [Prerequisites](#prerequisites) above.
 
 ## Completions
 
@@ -262,7 +262,7 @@ require("cmp").register_source("swank", require("cmp_swank"))
 ### Other plugins
 
 Any plugin that honours `omnifunc` (coq_nvim, mini.completion, etc.) can be
-wired by setting the buffer option — swank.nvim does **not** set `omnifunc`
+wired by setting the buffer option. swank.nvim does **not** set `omnifunc`
 automatically, so add this to your FileType autocmd if needed:
 
 ```lua
@@ -320,7 +320,16 @@ See `:help swank.nvim` after installation.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — includes coverage requirements (80% floor, 100% goal) and test instructions.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for coverage requirements (80% floor, 100% goal) and test instructions.
+
+## Acknowledgements
+
+- [SLIME](https://github.com/slime/slime) — the original Swank protocol and the Emacs CL environment this is modelled after
+- [Swank](https://github.com/slime/slime/blob/master/swank.lisp) — the server-side protocol implementation from the SLIME project, typically installed via SLIME/Quicklisp/ASDF or system packages
+- [vlime](https://github.com/vlime/vlime) and [nvlime](https://github.com/monkoose/nvlime) — prior Neovim/Vim Swank clients that proved the concept
+- [Conjure](https://github.com/Olical/conjure) — inspiration for a clean Neovim-native Lisp workflow
+- [plenary.nvim](https://github.com/nvim-lua/plenary.nvim) — test harness (busted runner) used throughout the test suite
+- [blink.cmp](https://github.com/Saghen/blink.cmp) — completion framework with a clean source API
 
 ## License
 

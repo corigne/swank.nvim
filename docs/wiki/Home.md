@@ -43,7 +43,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
 ### 3. Open a Lisp file
 
-Open any `.lisp` or `.cl` file — swank.nvim spawns SBCL and connects
+Open any `.lisp` or `.cl` file. swank.nvim spawns SBCL and connects
 automatically. The REPL appears as soon as the server is ready.
 
 To connect to an already-running Swank server instead (e.g. on a remote host),

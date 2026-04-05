@@ -113,7 +113,7 @@ Trigger with `<C-x><C-o>` in insert mode.
 ### Completions don't appear
 
 1. Check that swank is connected: `:lua print(require("swank.client").is_connected())`
-2. Verify the source name matches exactly — blink is case-sensitive
+2. Verify the source name matches exactly; blink is case-sensitive.
 3. Make sure you don't have a conflicting omnifunc set (e.g. from a previous
    Vlime install: `blink.cmp opts = { complete_func = "vlime#..." }`)
 

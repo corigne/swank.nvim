@@ -19,7 +19,7 @@ make coverage          # unit tests + luacov report + 80% gate
 
 Location: `tests/unit/`
 
-Run headless — no display, no server needed. Neovim's full Lua API is available
+Run headless, with no display or server needed. Neovim's full Lua API is available
 (`vim.api`, `vim.fn`, `vim.uv` stubs, etc.).
 
 ### Test files
