@@ -160,7 +160,7 @@ local function build_content()
 
   -- Statusline: pinned keymap hint. %< marks the truncation point so the
   -- critical keys on the left are preserved on narrow windows.
-  local statusline = "  [0-9]restart  [a]bort  [c]ont  [q]uit%<  [e]val  [v]src  [l]ocals"
+  local statusline = "  [0-9]restart  abort [a]bort  [c]ont  quit [q]uit%<  [e]val  [v]src  [l]ocals"
 
   return lines, { restart_lines = restart_lines, frame_lines = frame_lines }, winbar, statusline
 end
