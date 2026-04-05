@@ -59,3 +59,7 @@ callback returns. Use `vim.wait` or a coroutine-based approach. Document
 clearly that this blocks the event loop briefly.
 
 ---
+
+
+## Tests to add (coverage)
+- Add unit tests covering transport._feed error branches, transport send/read error paths, and client._on_connect follow-ups to raise coverage >80
