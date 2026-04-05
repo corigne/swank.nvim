@@ -349,7 +349,16 @@ end
 --- Describe a symbol by name
 ---@param sym string
 function M.describe(sym)
-  M.rex({ "swank:describe-symbol", sym }, function(result)
+  -- Sanitize common reader prefixes and whitespace; validate symbol-like input.
+  if not sym then return end
+  local s = tostring(sym)
+  -- Strip #', leading quotes/backticks/commas produced by some editors/completions
+  s = s:gsub("^#'", ""):gsub("^['`%,]+", "")
+  s = s:match("^%s*(.-)%s*$") or s
+  if not M._is_symbol_like(s) then return end
+
+  -- Use silent_rex so any side-effect :write-string output (e.g. "Unknown symbol:") is suppressed
+  M.silent_rex({ "swank:describe-symbol", s }, function(result)
     if type(result) ~= "table" or result[1] ~= ":ok" then return end
     local text = tostring(result[2] or ""):gsub("\r", "")
     local lines = vim.split(text, "\n", { plain = true })
@@ -372,7 +381,7 @@ function M.describe(sym)
       width = width, height = height,
       style = "minimal",
       border = fcfg.border or "rounded",
-      title = " " .. sym .. " ",
+      title = " " .. s .. " ",
       title_pos = "center",
     })
     if vim.api.nvim_win_is_valid(win) then
@@ -589,12 +598,16 @@ function M.autodoc(force)
   local sym = M._innermost_operator()
   if not sym or sym == "" then return end
 
+  -- Strip common reader prefixes and whitespace; ensure it's symbol-like
+  local s = tostring(sym):gsub("^#'", ""):gsub("^['`%,]+", ""):match("^%s*(.-)%s*$")
+  if not M._is_symbol_like(s) then return end
+
   -- Use silent_rex to avoid :write-string side effects while fetching arglists.
   M.silent_rex(
-    { "swank:operator-arglist", sym, current_package },
+    { "swank:operator-arglist", s, current_package },
     function(result)
       if type(result) == "table" and result[1] == ":ok" and result[2] then
-        vim.api.nvim_echo({ { sym .. ": " .. tostring(result[2]), "Comment" } }, false, {})
+        vim.api.nvim_echo({ { s .. ": " .. tostring(result[2]), "Comment" } }, false, {})
       end
     end
   )
