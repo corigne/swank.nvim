@@ -1,0 +1,1205 @@
+==============================================================================
+/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua
+==============================================================================
+      -- swank.nvim — high-level Swank client
+      -- Manages connection lifecycle, emacs-rex call/response, and event routing.
+
+    3 local M = {}
+
+    3 local transport_mod = require("swank.transport")
+    3 local protocol = require("swank.protocol")
+
+      ---@type SwankTransport|nil
+    3 local transport = nil
+
+      ---@type "disconnected"|"connecting"|"connected"
+    3 local connection_state = "disconnected"
+
+      ---@type integer|nil  jobstart job id for the CL implementation process
+    3 local impl_job_id = nil
+
+      ---@type string[]  stderr lines collected during implementation startup; shown only on error exit
+    3 local stderr_log = {}
+      ---@type integer  monotonically increasing message ID
+    3 local msg_id = 0
+
+      ---@type table<integer, fun(result: any)>  pending RPC callbacks
+    3 local callbacks = {}
+
+      ---@type integer  count of in-flight "silent" rex calls; suppresses :write-string while > 0
+    3 local silent_count = 0
+
+      ---@type string  current package context
+    3 local current_package = "COMMON-LISP-USER"
+
+      local function next_id()
+   40   msg_id = msg_id + 1
+   40   return msg_id
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Connection management
+      -- ---------------------------------------------------------------------------
+
+      --- Connect to a running Swank server
+      ---@param host string|nil  defaults to config
+      ---@param port integer|nil defaults to config
+    3 function M.connect(host, port)
+    3   if connection_state ~= "disconnected" then
+    1     vim.notify("swank.nvim: already connected or connecting", vim.log.levels.WARN)
+    1     return
+        end
+    2   local cfg = require("swank").config
+    2   host = host or cfg.server.host
+    2   port = port or cfg.server.port
+    2   connection_state = "connecting"
+
+    4   transport = transport_mod.Transport.new(
+          function(raw)  -- on_message
+****0       local msg = protocol.parse(raw)
+****0       if msg then protocol.dispatch(msg) end
+          end,
+          function()     -- on_disconnect
+****0       transport = nil
+****0       connection_state = "disconnected"
+****0       vim.notify("swank.nvim: disconnected", vim.log.levels.WARN)
+          end
+    2   )
+
+    4   transport:connect(host, port, function(err)
+    2     if err then
+    1       vim.notify("swank.nvim: connection failed — " .. err, vim.log.levels.ERROR)
+    1       transport = nil
+    1       connection_state = "disconnected"
+    1       return
+          end
+    1     connection_state = "connected"
+    1     vim.notify("swank.nvim: connected to " .. host .. ":" .. port, vim.log.levels.INFO)
+    1     M._on_connect()
+        end)
+      end
+
+      --- CLI flags for each supported CL implementation.
+      --- The flags suppress banners/interactivity and load a file.
+      --- Unknown implementations fall back to SBCL-style flags.
+      ---@type table<string, string[]>
+    3 local impl_cli_flags = {
+    3   sbcl  = { "--noinform", "--non-interactive", "--load" },
+    3   ccl   = { "--quiet", "--batch", "--load" },
+    3   ecl   = { "--norc", "--load" },
+    3   abcl  = { "--batch", "--load" },
+      }
+
+      --- Spawn the configured CL implementation with Swank, detect port from file, then connect
+    3 function M.start_and_connect()
+    9   if connection_state ~= "disconnected" then return end
+
+   16   local cache_dir = vim.fn.stdpath("cache") .. "/swank.nvim"
+    9   vim.fn.mkdir(cache_dir, "p")
+    8   local port_file = cache_dir .. "/swank-port"
+    8   local script_file = cache_dir .. "/start-swank.lisp"
+    9   vim.fn.delete(port_file)
+
+    8   local escaped = port_file:gsub("\\", "\\\\"):gsub('"', '\\"')
+   16   local script = string.format([[
+      (require :asdf)
+      #-quicklisp
+      (let ((qs (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+        (when (probe-file qs) (load qs)))
+      (handler-case
+          (progn #+quicklisp (ql:quickload :swank :silent t)
+                 #-quicklisp (require :swank))
+        (error (e)
+          (format *error-output* "swank.nvim: ~a~%%" e)
+          (uiop:quit 1)))
+      (setf swank::*swank-debug-p* nil)
+      (let ((port (swank:create-server :port 0 :dont-close t)))
+        (with-open-file (s (pathname "%s") :direction :output :if-exists :supersede)
+          (format s "~d" port))
+        (loop (sleep 60)))
+    8 ]], escaped)
+
+    8   local f = io.open(script_file, "w")
+    8   if not f then
+****0     vim.notify("swank.nvim: cannot write startup script", vim.log.levels.ERROR)
+****0     return
+        end
+    8   f:write(script)
+    8   f:close()
+
+    8   local impl = require("swank").config.autostart.implementation
+        -- Build argv: binary + quiet/batch flags + "--load" + script
+   16   local impl_name = vim.fn.fnamemodify(impl, ":t"):lower()
+    8   local flags = impl_cli_flags[impl_name] or impl_cli_flags.sbcl
+        -- flags ends with "--load"; append the script path
+    8   local argv = { impl }
+   30   for _, flag in ipairs(flags) do table.insert(argv, flag) end
+    8   table.insert(argv, script_file)
+
+    8   connection_state = "connecting"
+    8   vim.notify("swank.nvim: starting " .. impl .. "…", vim.log.levels.INFO)
+
+   16   impl_job_id = vim.fn.jobstart(
+    8     argv,
+          {
+            on_stderr = function(_, data)
+****0         for _, line in ipairs(data) do
+****0           if line ~= "" then
+****0             table.insert(stderr_log, line)
+                end
+              end
+            end,
+            on_exit = function(_, code)
+****0         impl_job_id = nil
+****0         if connection_state ~= "connected" then
+****0           connection_state = "disconnected"
+****0           local tail = table.concat(stderr_log, "\n")
+****0           vim.notify(
+****0             "swank.nvim: " .. impl .. " exited (code " .. code .. ")\n" .. tail,
+****0             vim.log.levels.ERROR
+                )
+              end
+****0         stderr_log = {}
+            end,
+          }
+    7   )
+
+    7   if impl_job_id <= 0 then
+    7     connection_state = "disconnected"
+    7     vim.notify("swank.nvim: failed to start " .. impl, vim.log.levels.ERROR)
+    7     return
+        end
+
+        -- Poll for port file (500ms × 60 = 30s timeout)
+****0   local attempts = 0
+****0   local timer = vim.uv.new_timer()
+****0   timer:start(500, 500, vim.schedule_wrap(function()
+****0     attempts = attempts + 1
+****0     local pf = io.open(port_file, "r")
+****0     if pf then
+****0       local port_str = pf:read("*l")
+****0       pf:close()
+****0       timer:stop()
+****0       timer:close()
+****0       local port = tonumber(port_str)
+****0       if port then
+****0         connection_state = "disconnected"  -- let connect() proceed
+****0         M.connect("127.0.0.1", port)
+            else
+****0         connection_state = "disconnected"
+****0         vim.notify("swank.nvim: malformed port file", vim.log.levels.ERROR)
+            end
+****0     elseif attempts >= 60 then
+****0       timer:stop()
+****0       timer:close()
+****0       connection_state = "disconnected"
+****0       vim.notify("swank.nvim: timed out waiting for Swank server", vim.log.levels.ERROR)
+          end
+        end))
+      end
+
+      --- Disconnect and optionally stop the CL implementation process
+    3 function M.disconnect()
+    1   if transport then
+    1     transport:disconnect()
+    1     transport = nil
+        end
+    1   connection_state = "disconnected"
+    1   if impl_job_id then
+****0     vim.fn.jobstop(impl_job_id)
+****0     impl_job_id = nil
+        end
+    1   vim.notify("swank.nvim: disconnected", vim.log.levels.INFO)
+      end
+
+      ---@return boolean
+    3 function M.is_connected()
+    9   return connection_state == "connected"
+      end
+
+    3 function M.get_package()
+****0   return current_package
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Low-level RPC
+      -- ---------------------------------------------------------------------------
+
+      --- Send an :emacs-rex call and register a callback for the response
+      ---@param form table      s-expression as a Lua table
+      ---@param cb fun(result: any)
+      ---@param pkg string|nil  package context
+      ---@param thread any|nil  thread id from :debug (nil → true, meaning Swank picks)
+    3 function M.rex(form, cb, pkg, thread)
+   41   if not transport then
+    1     vim.notify("swank.nvim: not connected", vim.log.levels.ERROR)
+    1     return
+        end
+   40   local id = next_id()
+   40   callbacks[id] = cb
+   80   local payload = protocol.serialize({
+          ":emacs-rex",
+   40     form,
+   40     pkg or current_package,
+   40     thread ~= nil and thread or true,
+   40     id,
+        })
+   40   transport:send(payload)
+      end
+
+      --- Like rex, but suppresses any :write-string output produced as a side effect.
+      --- Use for background queries (describe-symbol, operator-arglist) that should
+      --- not pollute the REPL or the message area.
+      ---@param form table
+      ---@param cb fun(result: any)
+      ---@param pkg string|nil
+      ---@param thread any|nil
+    3 function M.silent_rex(form, cb, pkg, thread)
+    3   silent_count = silent_count + 1
+    6   M.rex(form, function(result)
+    2     silent_count = math.max(0, silent_count - 1)
+    2     cb(result)
+    5   end, pkg, thread)
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Event handlers
+      -- ---------------------------------------------------------------------------
+
+    6 protocol.on(":return", function(msg)
+        -- msg = (:return (:ok result) id)  or  (:return (:abort condition) id)
+   21   local id = msg[3]
+   21   local cb = callbacks[id]
+   21   if cb then
+   19     callbacks[id] = nil
+   19     cb(msg[2])
+        end
+      end)
+
+    6 protocol.on(":write-string", function(msg)
+    1   if silent_count > 0 then return end
+    1   require("swank.ui.repl").append(msg[2] or "")
+      end)
+
+    6 protocol.on(":debug", function(msg)
+        -- Suppress debugger activation caused by background 'silent' rex calls
+    1   if silent_count > 0 then
+****0     local ok_swank, swank_mod = pcall(require, "swank")
+****0     if ok_swank and swank_mod.config and swank_mod.config.debug then
+****0       pcall(function()
+****0         local fp = io.open("/tmp/swank_silent_debug_events.log", "a")
+****0         if fp then
+****0           fp:write(os.date("%FT%T") .. " suppressed :debug — payload=" .. tostring(msg[2]) .. "\n")
+****0           fp:close()
+              end
+            end)
+          end
+****0     return
+        end
+    1   require("swank.ui.sldb").open(msg)
+      end)
+
+    3 protocol.on(":debug-activate", function(_) end)
+
+    6 protocol.on(":debug-return", function(_)
+    1   require("swank.ui.sldb").close()
+      end)
+
+    3 protocol.on(":new-features", function(_) end)
+
+    3 protocol.on(":indentation-update", function(_) end)
+
+    6 protocol.on(":ping", function(msg)
+        -- Swank keepalive; respond with :emacs-pong
+    1   if transport then
+    1     local payload = protocol.serialize({ ":emacs-pong", msg[2], msg[3] })
+    1     transport:send(payload)
+        end
+      end)
+
+      -- SWANK-TRACE-DIALOG events
+    6 protocol.on(":trace-dialog-update", function(msg)
+        -- msg = (:trace-dialog-update specs entries)
+        -- specs is a list of traced spec names; entries is a list of trace records
+    1   local specs   = type(msg[2]) == "table" and msg[2] or {}
+    1   local batch   = type(msg[3]) == "table" and msg[3] or {}
+    1   local trace   = require("swank.ui.trace")
+    1   trace.set_specs(specs)
+    1   trace.push_entries(batch)
+      end)
+
+      -- ---------------------------------------------------------------------------
+      -- Eval operations
+      -- ---------------------------------------------------------------------------
+
+      --- Eval the top-level form under the cursor
+    3 function M.eval_toplevel()
+    1   local form = M._form_at_cursor()
+    1   if not form or form == "" then return end
+    1   require("swank.ui.repl").show_input(form)
+    2   M.rex({ "swank:eval-and-grab-output", form }, function(result)
+****0     require("swank.ui.repl").show_result(result)
+        end)
+      end
+
+      --- Eval visually selected region
+    3 function M.eval_region()
+    1   local lines = M._get_visual_selection()
+    1   if not lines then return end
+    1   require("swank.ui.repl").show_input(lines)
+    2   M.rex({ "swank:eval-and-grab-output", lines }, function(result)
+****0     require("swank.ui.repl").show_result(result)
+        end)
+      end
+
+      --- Eval with interactive input via vim.ui.input
+    3 function M.eval_interactive()
+****0   vim.ui.input({ prompt = "Eval: " }, function(input)
+****0     if not input or input == "" then return end
+****0     require("swank.ui.repl").show_input(input)
+****0     M.rex({ "swank:eval-and-grab-output", input }, function(result)
+****0       require("swank.ui.repl").show_result(result)
+          end)
+        end)
+      end
+
+      --- Describe a symbol by name
+      ---@param sym string
+    3 function M.describe(sym)
+        -- Sanitize common reader prefixes and whitespace; validate symbol-like input.
+    2   if not sym then return end
+    2   local raw_token = tostring(sym)
+    2   local s = raw_token
+        -- Strip #', leading quotes/backticks/commas produced by some editors/completions
+    2   s = s:gsub("^#'", ""):gsub("^['`%,]+", "")
+    2   s = s:match("^%s*(.-)%s*$") or s
+
+        -- Debug log raw->sanitized (only when config.debug)
+    2   local ok_swank, swank_mod = pcall(require, "swank")
+    2   if ok_swank and swank_mod.config and swank_mod.config.debug then
+****0     local ok, f = pcall(io.open, "/tmp/swank_sanitize_debug.log", "a")
+****0     if ok and f then
+****0       pcall(function()
+****0         f:write(os.date("%FT%T") .. " raw=" .. tostring(raw_token) .. " sanitized=" .. tostring(s) .. "\n")
+****0         f:close()
+            end)
+          end
+        end
+
+    4   if not M._is_symbol_like(s) then return end
+
+        -- Use silent_rex so any side-effect :write-string output (e.g. "Unknown symbol:") is suppressed
+    4   M.silent_rex({ "swank:describe-symbol", s }, function(result)
+    2     if type(result) ~= "table" or result[1] ~= ":ok" then return end
+    1     local text = tostring(result[2] or ""):gsub("\r", "")
+    1     local lines = vim.split(text, "\n", { plain = true })
+    1     while #lines > 0 and lines[#lines] == "" do table.remove(lines) end
+    1     if #lines == 0 then return end
+    1     local width = 0
+    2     for _, l in ipairs(lines) do width = math.max(width, #l) end
+    2     width = math.min(math.max(width, 40), math.floor(vim.o.columns * 0.7))
+    2     local height = math.min(#lines, math.floor(vim.o.lines * 0.5))
+    1     local buf = vim.api.nvim_create_buf(false, true)
+    2     vim.bo[buf].filetype = "swank-describe"
+    2     vim.bo[buf].buftype  = "nofile"
+    1     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    2     vim.bo[buf].modifiable = false
+    1     local c = require("swank").config
+    1     local fcfg = (c and c.ui and c.ui.floating) or {}
+    2     local win = vim.api.nvim_open_win(buf, false, {
+            relative = "cursor",
+            row = 1, col = 0,
+    1       width = width, height = height,
+            style = "minimal",
+    1       border = fcfg.border or "rounded",
+    1       title = " " .. s .. " ",
+            title_pos = "center",
+          })
+    1     if vim.api.nvim_win_is_valid(win) then
+****0       vim.wo[win].wrap = true
+          end
+          -- close on any cursor movement or buffer leave
+    2     vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "BufLeave" }, {
+            once = true,
+            callback = function()
+    1         if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+            end,
+          })
+        end)
+      end
+
+      --- Run an apropos query and display formatted results in the REPL
+      ---@param query string
+    3 function M.apropos(query)
+   10   M.rex({ "swank:apropos-list-for-emacs", query, false, false, nil }, function(result)
+    5     if type(result) ~= "table" or result[1] ~= ":ok" then return end
+    4     local entries = result[2]
+    4     if type(entries) ~= "table" or #entries == 0 then
+    1       require("swank.ui.repl").append("; no apropos matches for: " .. query .. "\n")
+    1       return
+          end
+    3     local lines = { "; Apropos: " .. query }
+    6     for _, entry in ipairs(entries) do
+    3       if type(entry) == "table" then
+    3         local e = M._plist(entry)
+    3         local name = tostring(e[":designator"] or "")
+    3         local kinds = {}
+    3         if e[":function"]  then table.insert(kinds, "function") end
+    3         if e[":macro"]     then table.insert(kinds, "macro") end
+    3         if e[":variable"]  then table.insert(kinds, "variable") end
+    3         if e[":type"]      then table.insert(kinds, "type") end
+    3         if e[":class"]     then table.insert(kinds, "class") end
+    3         local suffix = #kinds > 0 and ("  [" .. table.concat(kinds, ", ") .. "]") or ""
+    3         table.insert(lines, "  " .. name .. suffix)
+            end
+          end
+    3     require("swank.ui.repl").append(table.concat(lines, "\n") .. "\n\n")
+        end)
+      end
+
+      --- Inspect a value by evaluating an expression string
+      ---@param expr string  expression to evaluate and inspect (e.g. "*", "SOME-VAR")
+    3 function M.inspect_value(expr)
+    2   M.rex({ "swank:init-inspector", expr }, function(result)
+    1     require("swank.ui.inspector").open(result)
+        end)
+      end
+
+      --- Navigate to the Nth part inside the current inspector view
+      ---@param n integer  0-based index of the part to follow
+    3 function M.inspect_nth_part(n)
+    2   M.rex({ "swank:inspect-nth-part", n }, function(result)
+****0     require("swank.ui.inspector").open(result)
+        end)
+      end
+
+      --- Go back to the previous inspector view
+    3 function M.inspector_pop()
+    4   M.rex({ "swank:inspector-pop" }, function(result)
+    2     if type(result) == "table" and result[1] == ":ok" and result[2] then
+    2       require("swank.ui.inspector").open(result)
+          else
+    1       vim.notify("swank.nvim: already at the top of the inspector stack", vim.log.levels.INFO)
+          end
+        end)
+      end
+
+      --- Refresh the current inspector view
+    3 function M.inspector_reinspect()
+    2   M.rex({ "swank:inspector-reinspect" }, function(result)
+****0     require("swank.ui.inspector").open(result)
+        end)
+      end
+
+      --- Quit the inspector
+    3 function M.quit_inspector()
+    1   M.rex({ "swank:quit-inspector" }, function(_) end)
+    1   require("swank.ui.inspector").close()
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Trace dialog operations (SWANK-TRACE-DIALOG contrib)
+      -- ---------------------------------------------------------------------------
+
+      --- Toggle tracing of a function by name
+      ---@param sym string  function name, e.g. "MY-FUNC" or "my-package:my-func"
+    3 function M.trace_toggle(sym)
+    2   M.rex({ "swank-trace-dialog:dialog-toggle-trace", sym }, function(result)
+    1     local trace = require("swank.ui.trace")
+    1     if type(result) == "table" and result[1] == ":ok" then
+    1       local specs = type(result[2]) == "table" and result[2] or {}
+    1       trace.set_specs(specs)
+    1       local names = {}
+    2       for _, s in ipairs(specs) do table.insert(names, tostring(s)) end
+    1       vim.notify("swank.nvim: tracing " .. table.concat(names, ", "), vim.log.levels.INFO)
+          end
+        end)
+      end
+
+      --- Untrace all traced functions
+    3 function M.untrace_all()
+    2   M.rex({ "swank-trace-dialog:dialog-untrace-all" }, function(result)
+    1     if type(result) == "table" and result[1] == ":ok" then
+    1       require("swank.ui.trace").set_specs({})
+    1       vim.notify("swank.nvim: all functions untraced", vim.log.levels.INFO)
+          end
+        end)
+      end
+
+      --- Clear accumulated trace entries
+    3 function M.clear_traces()
+    2   M.rex({ "swank-trace-dialog:clear-trace-tree" }, function(_)
+    1     require("swank.ui.trace").clear()
+        end)
+      end
+
+      --- Pull the latest trace entries from Swank and update the dialog
+    3 function M.refresh_traces()
+        -- report-specs gives the list of traced names
+    2   M.rex({ "swank-trace-dialog:report-specs" }, function(result)
+    1     if type(result) == "table" and result[1] == ":ok" then
+    2       require("swank.ui.trace").set_specs(
+    1         type(result[2]) == "table" and result[2] or {})
+          end
+        end)
+        -- report-partial-tree gives pending entries (pass 0 to get all since last)
+    2   M.rex({ "swank-trace-dialog:report-partial-tree", 0 }, function(result)
+    1     if type(result) == "table" and result[1] == ":ok" then
+    2       require("swank.ui.trace").push_entries(
+    1         type(result[2]) == "table" and result[2] or {})
+          end
+        end)
+      end
+
+      --- Load current file
+    3 function M.load_file()
+    2   local path = vim.api.nvim_buf_get_name(0)
+    2   if path == "" then
+    1     vim.notify("swank.nvim: buffer has no file path", vim.log.levels.WARN)
+    1     return
+        end
+    2   M.rex({ "swank:load-file", path }, function(result)
+****0     require("swank.ui.repl").show_result(result)
+        end)
+      end
+
+      --- Compile current file
+    3 function M.compile_file()
+    2   local path = vim.api.nvim_buf_get_name(0)
+    2   if path == "" then
+    1     vim.notify("swank.nvim: buffer has no file path", vim.log.levels.WARN)
+    1     return
+        end
+    2   M.rex({ "swank:compile-file-for-emacs", path, false }, function(result)
+****0     require("swank.ui.notes").show(result, path)
+        end)
+      end
+
+      --- Compile form at cursor
+    3 function M.compile_form()
+    1   local form = M._form_at_cursor()
+    1   if not form or form == "" then return end
+    1   local bufname = vim.api.nvim_buf_get_name(0)
+    1   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+        -- position must be a quoted list of location specs matching SLIME's format:
+        -- '((:line L COL)) -- lists are not self-evaluating in CL, so QUOTE is required.
+    1   local position = { "QUOTE", { { ":line", row, col } } }
+    2   M.rex({ "swank:compile-string-for-emacs", form, bufname, position, false, false }, function(result)
+****0     require("swank.ui.notes").show(result, bufname)
+        end)
+      end
+
+      --- Switch package interactively
+    3 function M.set_package_interactive()
+    4   vim.ui.input({ prompt = "Package: ", default = current_package }, function(pkg)
+    2     if not pkg or pkg == "" then return end
+    3     M.rex({ "swank:set-package", pkg:upper() }, function(result)
+    1       if type(result) == "table" and result[1] == ":ok" then
+    2         current_package = pkg:upper()
+    1         vim.notify("swank.nvim: package → " .. current_package, vim.log.levels.INFO)
+            end
+          end)
+        end)
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Arglist autodoc
+      -- ---------------------------------------------------------------------------
+
+      --- Show arglist for the innermost operator at cursor in the echo area
+      -- Accept an optional 'force' argument: when true, run even in insert mode.
+    3 function M.autodoc(force)
+        -- Don't auto-show in insert mode to avoid spamming the echo area.
+    3   if not force and vim.api.nvim_get_mode().mode == "i" then return end
+
+        -- Debug: log invocations and stacktrace so we can find who triggers autodoc.
+    3   local ok_swank, swank_mod = pcall(require, "swank")
+    3   if ok_swank and swank_mod.config and swank_mod.config.debug then
+****0     pcall(function()
+****0       local fp = io.open("/tmp/swank_autodoc_traces.log", "a")
+****0       if not fp then return end
+****0       local ts = os.date("%Y-%m-%dT%H:%M:%S")
+****0       local mode = vim.api.nvim_get_mode().mode
+****0       local buf = vim.api.nvim_get_current_buf()
+****0       local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+****0       fp:write(string.format("%s mode=%s buf=%d cursor=%d:%d\n", ts, mode, buf, row, col))
+****0       fp:write(debug.traceback(nil, 2) .. "\n\n")
+****0       fp:close()
+          end)
+        end
+
+    6   if not M.is_connected() then return end
+    2   local sym = M._innermost_operator()
+    2   if not sym or sym == "" then return end
+
+        -- Strip common reader prefixes and whitespace; ensure it's symbol-like
+    1   local s = tostring(sym):gsub("^#'", ""):gsub("^['`%,]+", ""):match("^%s*(.-)%s*$")
+    2   if not M._is_symbol_like(s) then return end
+
+        -- Use silent_rex to avoid :write-string side effects while fetching arglists.
+    2   M.silent_rex(
+    1     { "swank:operator-arglist", s, current_package },
+          function(result)
+****0       if type(result) == "table" and result[1] == ":ok" and result[2] then
+****0         vim.api.nvim_echo({ { s .. ": " .. tostring(result[2]), "Comment" } }, false, {})
+            end
+          end
+        )
+      end
+
+      -- XRef
+      ---@param sym string
+    3 function M.xref_calls(sym)
+    1   M.rex({ "swank:xref", ":calls", sym }, function(r) require("swank.ui.xref").show(r, "calls") end)
+      end
+
+      ---@param sym string
+    3 function M.xref_references(sym)
+    1   M.rex({ "swank:xref", ":references", sym }, function(r) require("swank.ui.xref").show(r, "references") end)
+      end
+
+      ---@param sym string
+    3 function M.find_definition(sym)
+    1   M.rex({ "swank:find-definitions-for-emacs", sym }, function(r) require("swank.ui.xref").show(r, "definition") end)
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Post-connect initialisation
+      -- ---------------------------------------------------------------------------
+
+    3 function M._on_connect()
+    3   local cfg = require("swank").config
+
+        -- 1. Get connection info (implementation name + version)
+    6   M.rex({ "swank:connection-info" }, function(result)
+    1     if type(result) == "table" and result[1] == ":ok" and type(result[2]) == "table" then
+    1       local info = M._plist(result[2])
+    1       local impl = M._plist(info[":lisp-implementation"] or {})
+    1       local name = impl[":name"] or "Unknown Lisp"
+    1       local version = impl[":version"] or ""
+    1       vim.notify("swank.nvim: " .. name .. " " .. version, vim.log.levels.INFO)
+          end
+        end)
+
+        -- 2. Load contribs (quoted list of keyword symbols, e.g. :swank-repl)
+    3   local contribs = type(cfg.contribs) == "table" and #cfg.contribs > 0 and cfg.contribs
+    3   if contribs then
+    2     M.rex({
+    1       "swank:swank-require",
+    1       { "QUOTE", contribs },
+          }, function(_)
+    1       M.rex({ "swank:set-package", current_package }, function(_) end)
+          end)
+        else
+    2     M.rex({ "swank:set-package", current_package }, function(_) end)
+        end
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Helpers
+      -- ---------------------------------------------------------------------------
+
+      --- Get the top-level form containing the cursor (treesitter → paren fallback)
+    3 function M._form_at_cursor()
+    3   local bufnr = vim.api.nvim_get_current_buf()
+    4   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "commonlisp")
+    3   if ok and parser then
+    6     local tree = parser:parse()[1]
+    3     if tree then
+    3       local root = tree:root()
+    3       local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+    3       row = row - 1
+    3       local node = root:named_descendant_for_range(row, col, row, col)
+    7       while node and node:parent() and node:parent() ~= root do
+    4         node = node:parent()
+            end
+    3       if node then
+    3         return vim.treesitter.get_node_text(node, bufnr)
+            end
+          end
+        end
+****0   return M._form_at_cursor_paren()
+      end
+
+      --- Bracket-aware top-level form scanner (used when treesitter unavailable)
+    3 function M._form_at_cursor_paren()
+    5   local bufnr = vim.api.nvim_get_current_buf()
+    5   local cursor_row = vim.api.nvim_win_get_cursor(0)[1]
+    5   local all_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+    5   local form_start = cursor_row
+    6   for i = cursor_row, 1, -1 do
+    6     if all_lines[i]:match("^%(") then
+    5       form_start = i
+    5       break
+          end
+        end
+
+    5   local collected = {}
+    5   local depth, in_str, esc = 0, false, false
+    8   for i = form_start, #all_lines do
+    8     local line = all_lines[i]
+    8     table.insert(collected, line)
+  122     for j = 1, #line do
+  120       local c = line:sub(j, j)
+  120       if esc then
+****0         esc = false
+  120       elseif in_str then
+   15         if c == "\\" then esc = true
+   15         elseif c == '"' then in_str = false end
+            else
+  105         if c == '"' then in_str = true
+  104         elseif c == ";" then break
+  103         elseif c == "(" then depth = depth + 1
+   92         elseif c == ")" then
+   11           depth = depth - 1
+   11           if depth == 0 then return table.concat(collected, "\n") end
+              end
+            end
+          end
+        end
+****0   return table.concat(collected, "\n")
+      end
+
+    3 function M._get_visual_selection()
+    4   local s = vim.fn.getpos("'<")
+    3   local e = vim.fn.getpos("'>")
+    3   local lines = vim.api.nvim_buf_get_lines(0, s[2] - 1, e[2], false)
+    3   if #lines == 0 then return nil end
+    2   return table.concat(lines, "\n")
+      end
+
+      --- Find the operator (first symbol) of the innermost list at cursor
+      ---@return string|nil
+    3 function M._innermost_operator()
+    5   local line = vim.api.nvim_get_current_line()
+    5   local col = vim.api.nvim_win_get_cursor(0)[2] + 1
+    5   local depth = 0
+   38   for i = col, 1, -1 do
+   36     local c = line:sub(i, i)
+   36     if c == ")" then
+****0       depth = depth + 1
+   36     elseif c == "(" then
+    3       if depth == 0 then
+    6         return line:sub(i + 1):match("^%s*([%a%d:%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~#]+)")
+            end
+****0       depth = depth - 1
+          end
+        end
+    2   return nil
+      end
+
+      --- Returns true if text looks like a single CL symbol (no whitespace, valid chars).
+      --- Used to guard describe/apropos so they don't fire on garbage selections.
+      ---@param text string|nil
+      ---@return boolean
+    3 function M._is_symbol_like(text)
+   25   if not text or text == "" then return false end
+   23   local trimmed = text:match("^%s*(.-)%s*$")
+   23   if trimmed == "" or trimmed:find("%s") then return false end
+        -- Reject tokens that end with ':' (package-only like 'cl-user:')
+   17   if trimmed:match(":$") then return false end
+        -- Reject bare numbers (integers and floats) — not valid symbol names
+   17   if trimmed:match("^%-?%d+%.?%d*$") then return false end
+        -- Must contain only valid CL symbol chars: letters, digits, and punctuation
+        -- allow colon for package-qualified names (but not trailing colon)
+   15   if trimmed:match("^[%a%d%+%-%*%/%@%$%%%%^%&%_%=%<%>%~%.%!%?%|:#]+$") == nil then return false end
+   15   return true
+      end
+
+      --- Convert a flat plist to a Lua table keyed by lowercased keyword
+      ---@param lst table
+      ---@return table
+    3 function M._plist(lst)
+   11   local t = {}
+   11   if type(lst) ~= "table" then return t end
+    9   local i = 1
+   25   while i < #lst do
+   32     t[tostring(lst[i] or ""):lower()] = lst[i + 1]
+   16     i = i + 2
+        end
+    9   return t
+      end
+
+      -- Test-only injection hooks (do not call from production code)
+    3 function M._test_inject(fake_transport)
+   48   transport        = fake_transport
+   48   connection_state = "connected"
+      end
+
+    3 function M._test_reset()
+   66   transport        = nil
+   66   connection_state = "disconnected"
+   66   current_package  = "COMMON-LISP-USER"
+   66   callbacks        = {}
+   66   msg_id           = 0
+   66   stderr_log       = {}
+   66   impl_job_id      = nil
+      end
+
+    3 return M
+
+==============================================================================
+/home/nexus/dev/personal/swank.nvim/lua/swank/init.lua
+==============================================================================
+    4 local M = {}
+
+    4 local default_config = {
+        -- Key prefix for all swank.nvim keymaps
+        leader = "<Leader>",
+        -- Swank server connection defaults
+    4   server = {
+          host = "127.0.0.1",
+          port = 4005,
+    4   },
+        -- Automatically start a CL implementation + Swank server on first attach
+    4   autostart = {
+          enabled = true,
+          implementation = "sbcl",
+    4   },
+        -- UI settings
+    4   ui = {
+    4     repl = {
+            -- "auto" picks the best layout based on terminal size:
+            -- right split if REPL gets >=80 cols, bottom if >=12 rows, else float
+            position = "auto",
+            -- fraction of editor width/height (0 < size <= 1) or fixed columns/rows
+            size = 0.45,
+    4     },
+    4     floating = {
+            border = "rounded",
+    4     },
+    4   },
+        -- Swank contribs to load on connect (keyword symbol format)
+    4   contribs = {
+          ":swank-asdf",
+          ":swank-repl",
+          ":swank-fuzzy",
+          ":swank-arglists",
+          ":swank-fancy-inspector",
+          ":swank-trace-dialog",
+          ":swank-c-p-c",
+          ":swank-package-fu",
+    4   },
+        -- Debug logging: when true, write debug logs to /tmp/*
+        debug = false,
+      }
+
+    4 M.config = {}
+
+      --- Register JSON schema with neoconf.nvim if it is available.
+      --- Enables schema-based completions and validation in .neoconf.json and similar files.
+      local function register_neoconf_schema()
+    4   local ok, neoconf = pcall(require, "neoconf.plugins")
+    4   if not ok then return end
+****0   local schema_files = vim.api.nvim_get_runtime_file("schemas/swank.nvim.json", false)
+****0   local schema_file = schema_files[1]
+****0   if not schema_file or schema_file == "" then return end
+****0   neoconf.register({
+          name = "swank.nvim",
+          schema = vim.fn.fnamemodify(schema_file, ":p"),
+          key = "swank",
+        })
+      end
+
+      --- Setup swank.nvim with user config
+      ---@param opts table|nil
+    4 function M.setup(opts)
+    8   M.config = vim.tbl_deep_extend("force", default_config, opts or {})
+    4   register_neoconf_schema()
+      end
+
+      --- Called on FileType lisp/cl — attach keymaps and optionally connect
+      ---@param bufnr integer
+    4 function M.attach(bufnr)
+    3   if not next(M.config) then
+    1     M.config = default_config
+        end
+    3   require("swank.keymaps").attach(bufnr, M.config)
+
+    3   local client = require("swank.client")
+    6   if M.config.autostart.enabled and not client.is_connected() then
+****0     client.start_and_connect()
+        end
+      end
+
+    4 return M
+
+==============================================================================
+/home/nexus/dev/personal/swank.nvim/lua/swank/protocol.lua
+==============================================================================
+      -- swank.nvim — Swank protocol: s-expression parser + serializer + event dispatch
+      -- Parses only the subset of s-expressions used in Swank messages.
+
+    4 local M = {}
+
+      -- ---------------------------------------------------------------------------
+      -- S-expression reader (minimal, Swank-message subset)
+      -- Handles: lists, strings, symbols, keywords, integers, nil/t
+      -- ---------------------------------------------------------------------------
+
+      ---@param src string
+      ---@param pos integer  (1-based)
+      ---@return any, integer  (value, next_pos)
+      local function read(src, pos)
+        -- skip whitespace
+  813   while pos <= #src and src:sub(pos, pos):match("%s") do pos = pos + 1 end
+  407   if pos > #src then error("unexpected end of input") end
+
+  406   local ch = src:sub(pos, pos)
+
+        -- list
+  406   if ch == "(" then
+  106     local result = {}
+  106     pos = pos + 1
+          while true do
+ 1365       while pos <= #src and src:sub(pos, pos):match("%s") do pos = pos + 1 end
+  894       if src:sub(pos, pos) == ")" then return result, pos + 1 end
+            local val
+  683       val, pos = read(src, pos)
+  341       table.insert(result, val)
+          end
+
+        -- string
+  300   elseif ch == '"' then
+   81     local s = ""
+   81     pos = pos + 1
+ 1018     while pos <= #src do
+ 1018       local c = src:sub(pos, pos)
+ 1018       if c == "\\" then
+    3         pos = pos + 1
+    6         s = s .. src:sub(pos, pos)
+ 1015       elseif c == '"' then
+   81         return s, pos + 1
+            else
+  934         s = s .. c
+            end
+  937       pos = pos + 1
+          end
+****0     error("unterminated string")
+
+        -- keyword or symbol
+  219   elseif ch:match("[%a%d:%-_#%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~`]") then
+  218     local s = ""
+ 3618     while pos <= #src and not src:sub(pos, pos):match("[%s%(%)\"']") do
+ 3194       s = s .. src:sub(pos, pos)
+ 1597       pos = pos + 1
+          end
+  218     local upper = s:upper()
+  218     if upper == "NIL" then return nil, pos
+  201     elseif upper == "T" then return true, pos
+  161     elseif s:match("^%-?%d+$") then return tonumber(s), pos
+  100     else return s, pos  -- symbol or keyword as plain string
+          end
+
+        -- quote shorthand
+    1   elseif ch == "'" then
+          local val
+    2     val, pos = read(src, pos + 1)
+    1     return { "QUOTE", val }, pos
+
+        else
+****0     error("unexpected character: " .. ch)
+        end
+      end
+
+      --- Parse a Swank s-expression message string into a Lua value
+      ---@param src string
+      ---@return any
+    4 function M.parse(src)
+  128   local ok, val = pcall(function()
+   64     local v, _ = read(src, 1)
+   63     return v
+        end)
+   64   if not ok then
+    1     vim.notify("swank.nvim: parse error: " .. tostring(val), vim.log.levels.ERROR)
+    1     return nil
+        end
+   63   return val
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- S-expression serializer
+      -- ---------------------------------------------------------------------------
+
+      ---@param val any
+      ---@return string
+    4 function M.serialize(val)
+  452   local t = type(val)
+  452   if val == nil then
+    1     return "nil"
+  451   elseif t == "boolean" then
+   59     return val and "t" or "nil"
+  392   elseif t == "number" then
+   68     return tostring(math.floor(val))
+  324   elseif t == "string" then
+          -- Only emit as an unquoted symbol when the string is:
+          --   1. a keyword   — starts with ':'  e.g. :ok, :swank-repl
+          --   2. package-qualified — contains ':' e.g. swank:eval-and-grab-output
+          --   3. an explicit CL operator we embed literally (QUOTE)
+          -- Everything else (package names, symbol strings passed as args) is quoted.
+  204     local is_symbol = val:match("^:[%a%d%-_%.]+$")        -- keyword
+  204       or val:match("^[^:]+:[%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#][%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#:]*$") -- pkg:sym
+  143       or val == "QUOTE"
+  204     if is_symbol then
+  110       return val
+          else
+   94       return '"' .. val:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'
+          end
+  120   elseif t == "table" then
+  120     local parts = {}
+  502     for _, v in ipairs(val) do
+  699       table.insert(parts, M.serialize(v))
+          end
+  120     return "(" .. table.concat(parts, " ") .. ")"
+        else
+****0     error("cannot serialize type: " .. t)
+        end
+      end
+
+      -- ---------------------------------------------------------------------------
+      -- Event dispatcher
+      -- ---------------------------------------------------------------------------
+
+      ---@type table<string, fun(payload: any)>
+    4 local handlers = {}
+
+      --- Register a handler for a Swank event type
+      ---@param event string  e.g. ":return", ":debug", ":write-string"
+      ---@param fn fun(payload: any)
+    4 function M.on(event, fn)
+   62   handlers[event:upper()] = fn
+      end
+
+      --- Dispatch a parsed Swank message to the appropriate handler
+      ---@param msg any  parsed s-expression (a list)
+    4 function M.dispatch(msg)
+   34   if type(msg) ~= "table" or not msg[1] then return end
+   30   local event = tostring(msg[1]):upper()
+   30   local handler = handlers[event]
+   30   if handler then
+   58     handler(msg)
+        else
+    1     vim.notify("swank.nvim: unhandled event: " .. event, vim.log.levels.DEBUG)
+        end
+      end
+
+    4 return M
+
+==============================================================================
+/home/nexus/dev/personal/swank.nvim/lua/swank/transport.lua
+==============================================================================
+      -- swank.nvim — async TCP transport layer
+      -- Uses vim.uv (libuv) for non-blocking socket I/O.
+      -- Swank message framing: 6-hex-digit length prefix + s-expression payload.
+
+    5 local M = {}
+
+    5 local uv = vim.uv
+
+      ---@class SwankTransport
+      ---@field handle uv_tcp_t|nil
+      ---@field buffer string
+      ---@field on_message fun(msg: string)
+      ---@field on_disconnect fun()
+    5 local Transport = {}
+    5 Transport.__index = Transport
+
+      --- Create a new transport instance
+      ---@param on_message fun(msg: string) called for each complete message received
+      ---@param on_disconnect fun() called on socket close/error
+      ---@return SwankTransport
+    5 function Transport.new(on_message, on_disconnect)
+   15   return setmetatable({
+          handle = nil,
+          buffer = "",
+   15     on_message = on_message,
+   15     on_disconnect = on_disconnect,
+   15   }, Transport)
+      end
+
+      --- Connect to a Swank server
+      ---@param host string
+      ---@param port integer
+      ---@param on_connect fun(err: string|nil)
+    5 function Transport:connect(host, port, on_connect)
+    2   local handle = uv.new_tcp()
+    4   handle:connect(host, port, function(err)
+****0     if err then
+****0       handle:close()
+****0       on_connect(err)
+****0       return
+          end
+****0     self.handle = handle
+****0     on_connect(nil)
+****0     handle:read_start(function(read_err, data)
+****0       vim.schedule(function()
+****0         if read_err or not data then
+****0           self:_on_close()
+****0           return
+              end
+****0         self:_feed(data)
+            end)
+          end)
+        end)
+      end
+
+      --- Send a raw message string (will be length-prefixed)
+      ---@param payload string
+    5 function Transport:send(payload)
+    2   if not self.handle then
+    1     vim.notify("swank.nvim: not connected", vim.log.levels.ERROR)
+    1     return
+        end
+    1   local frame = string.format("%06x", #payload) .. payload
+    1   self.handle:write(frame)
+      end
+
+      --- Disconnect the socket
+    5 function Transport:disconnect()
+    2   if self.handle then
+    1     self.handle:close()
+    1     self.handle = nil
+        end
+      end
+
+      --- Internal: handle raw data from socket
+      ---@param data string
+    5 function Transport:_feed(data)
+   55   self.buffer = self.buffer .. data
+        while true do
+   69     if #self.buffer < 6 then break end
+   62     local len = tonumber(self.buffer:sub(1, 6), 16)
+   31     if not len then
+    1       vim.notify("swank.nvim: bad message frame", vim.log.levels.ERROR)
+    1       self.buffer = ""
+    1       break
+          end
+   30     if #self.buffer < 6 + len then break end
+   14     local msg = self.buffer:sub(7, 6 + len)
+   28     self.buffer = self.buffer:sub(7 + len)
+   28     self.on_message(msg)
+        end
+      end
+
+      --- Internal: handle socket close
+    5 function Transport:_on_close()
+    1   self.handle = nil
+    1   self.on_disconnect()
+      end
+
+    5 M.Transport = Transport
+    5 return M
+
+==============================================================================
+Summary
+==============================================================================
+
+File                                                        Hits Missed Coverage
+--------------------------------------------------------------------------------
+/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua    371  85     81.36%
+/home/nexus/dev/personal/swank.nvim/lua/swank/init.lua      27   5      84.38%
+/home/nexus/dev/personal/swank.nvim/lua/swank/protocol.lua  75   3      96.15%
+/home/nexus/dev/personal/swank.nvim/lua/swank/transport.lua 39   12     76.47%
+--------------------------------------------------------------------------------
+Total                                                       512  105    82.98%
