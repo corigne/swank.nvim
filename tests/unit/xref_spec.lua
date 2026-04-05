@@ -36,6 +36,19 @@ describe("xref", function()
       assert.equals("/upper.lisp", file)
       assert.equals(3, line)
     end)
+
+    it("returns nil file when :file value is nil", function()
+      local loc = { ":location", { ":file", nil }, { ":line", 5, 0 }, nil }
+      local file, line = xref._extract_location(loc)
+      assert.is_nil(file)
+      assert.equals(5, line)
+    end)
+
+    it("returns empty string file when :file value is empty string", function()
+      local loc = { ":location", { ":file", "" }, { ":line", 5, 0 }, nil }
+      local file, _ = xref._extract_location(loc)
+      assert.equals("", file)
+    end)
   end)
 
   -- ── _refs_to_qflist ─────────────────────────────────────────────────────
@@ -89,6 +102,18 @@ describe("xref", function()
       local refs = { { "BAR", make_loc("/x.lisp", 7) } }
       assert.equals("calls: BAR",      xref._refs_to_qflist(refs, "calls")[1].text)
       assert.equals("references: BAR", xref._refs_to_qflist(refs, "references")[1].text)
+    end)
+
+    it("skips entries where :file is nil", function()
+      local loc = { ":location", { ":file", nil }, { ":line", 1, 0 }, nil }
+      local qf = xref._refs_to_qflist({ { "FOO", loc } }, "definition")
+      assert.equals(0, #qf)
+    end)
+
+    it("skips entries where :file is empty string", function()
+      local loc = { ":location", { ":file", "" }, { ":line", 1, 0 }, nil }
+      local qf = xref._refs_to_qflist({ { "FOO", loc } }, "definition")
+      assert.equals(0, #qf)
     end)
   end)
 
@@ -212,6 +237,36 @@ describe("xref", function()
       assert.equals(2, #select_items)
       assert.is_false(copen_called)
       assert.equals(0, #qflist_calls)
+    end)
+
+    it("uses vim.defer_fn for picker jump when hooked (not vim.schedule)", function()
+      -- Stub defer_fn to capture the callback and delay without actually firing
+      local deferred_fn, deferred_delay
+      local orig_defer = vim.defer_fn
+      vim.defer_fn = function(fn, delay)
+        deferred_fn    = fn
+        deferred_delay = delay
+      end
+
+      -- Replace vim.ui.select: immediately invoke callback with first item
+      vim.ui.select = function(items, _, cb) cb(items[1]) end
+
+      local refs = {
+        { "FOO", make_loc("/a.lisp", 3) },
+        { "BAR", make_loc("/b.lisp", 7) },
+      }
+      xref.show(make_ok(refs), "calls")
+      vim.defer_fn = orig_defer
+
+      -- defer_fn must have been called with the expected delay
+      assert.is_not_nil(deferred_fn)
+      assert.equals(50, deferred_delay)
+
+      -- Invoking the deferred fn should call jump_to → vim.cmd("edit /a.lisp")
+      deferred_fn()
+      assert.equals(1, #cmd_calls)
+      assert.truthy(cmd_calls[1]:find("/a.lisp"))
+      assert.is_false(copen_called)
     end)
   end)
 end)
