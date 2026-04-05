@@ -81,7 +81,7 @@ function M:resolve(item, callback)
     callback(item)
     return
   end
-  client.rex({ "swank:describe-symbol", item.label }, function(result)
+  client.silent_rex({ "swank:describe-symbol", item.label }, function(result)
     if type(result) == "table" and result[1] == ":ok" and result[2] then
       local text = tostring(result[2]):gsub("\r", ""):gsub("%s+$", "")
       item.documentation = { kind = "markdown", value = "```\n" .. text .. "\n```" }

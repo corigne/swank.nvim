@@ -23,6 +23,9 @@ local msg_id = 0
 ---@type table<integer, fun(result: any)>  pending RPC callbacks
 local callbacks = {}
 
+---@type integer  count of in-flight "silent" rex calls; suppresses :write-string while > 0
+local silent_count = 0
+
 ---@type string  current package context
 local current_package = "COMMON-LISP-USER"
 
@@ -241,6 +244,21 @@ function M.rex(form, cb, pkg, thread)
   transport:send(payload)
 end
 
+--- Like rex, but suppresses any :write-string output produced as a side effect.
+--- Use for background queries (describe-symbol, operator-arglist) that should
+--- not pollute the REPL or the message area.
+---@param form table
+---@param cb fun(result: any)
+---@param pkg string|nil
+---@param thread any|nil
+function M.silent_rex(form, cb, pkg, thread)
+  silent_count = silent_count + 1
+  M.rex(form, function(result)
+    silent_count = math.max(0, silent_count - 1)
+    cb(result)
+  end, pkg, thread)
+end
+
 -- ---------------------------------------------------------------------------
 -- Event handlers
 -- ---------------------------------------------------------------------------
@@ -256,6 +274,7 @@ protocol.on(":return", function(msg)
 end)
 
 protocol.on(":write-string", function(msg)
+  if silent_count > 0 then return end
   require("swank.ui.repl").append(msg[2] or "")
 end)
 
