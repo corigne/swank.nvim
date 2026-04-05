@@ -81,14 +81,25 @@ jobs:
           if-no-files-found: warn
 
       - name: Update README coverage badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # If running on a PR, switch to the PR head branch so commits land in the PR
+          if [ -n "${GITHUB_HEAD_REF}" ]; then
+            git fetch origin "${GITHUB_HEAD_REF}:${GITHUB_HEAD_REF}"
+            git checkout "${GITHUB_HEAD_REF}"
+          fi
           # Update badge from the generated luacov.report.out
           bash scripts/update_coverage_badge.sh
           git add README.md luacov.report.out
-          if git diff --staged --quiet; then echo "No badge change"; else git commit -m "ci(badge): update coverage badge" && git push origin HEAD:main; fi
+          if git diff --staged --quiet; then
+            echo "No badge change"
+          else
+            git commit -m "ci(badge): update coverage badge"
+            # Push commit back to the PR branch
+            git push origin HEAD:"${GITHUB_HEAD_REF:-$(git rev-parse --abbrev-ref HEAD)}"
+          fi
 
   # ── Integration tests ──────────────────────────────────────────────────────
   integration:
