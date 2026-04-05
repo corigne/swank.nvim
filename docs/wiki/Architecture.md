@@ -1,7 +1,7 @@
 # Architecture
 
 swank.nvim is structured as a strict layered pipeline with clearly separated concerns.
-No layer reaches upward or sideways — data flows top-down.
+No layer reaches upward or sideways; data flows top-down.
 
 ```
 Editor events (keypress, autocmd, filetype)
@@ -57,7 +57,7 @@ A minimal recursive-descent parser supporting the subset Swank actually sends:
 - Integers `-42`, `0`, `65536`
 
 The parser is single-pass with no allocation beyond Lua tables.
-It returns a plain Lua table tree — no special node types.
+It returns a plain Lua table tree with no special node types.
 
 ### Serialiser
 
@@ -119,7 +119,7 @@ serialises it, sends it over transport, registers `callback` for the
 
 All callbacks fire inside `vim.schedule()` so they are safe to call
 Neovim APIs (buffer writes, window opens, diagnostics) from within them.
-Never call Neovim APIs directly inside a `vim.uv` callback — always
+Never call Neovim APIs directly inside a `vim.uv` callback; always
 wrap in `vim.schedule`.
 
 ---
@@ -164,7 +164,7 @@ so standard navigation muscle memory works in Lisp buffers.
 
 ## blink.cmp source — `blink_source.lua`
 
-Implements the blink.cmp `Source` interface. No direct vim.uv involvement —
+Implements the blink.cmp `Source` interface. It has no direct vim.uv involvement;
 it just calls `client.completions()` and maps the result to `CompletionItem[]`.
 
 Prefix extraction: `ctx.line:sub(1, ctx.cursor[2])` (col is byte offset, 1-indexed).

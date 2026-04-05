@@ -41,7 +41,7 @@ threshold will not be merged.
 
 - New functions need unit tests
 - UI modules (`lua/swank/ui/`) and `keymaps.lua` are **excluded** from
-  the gate — they require a real editor window and cannot be unit-tested
+  the gate; they require a real editor window and cannot be unit-tested
 - Logic in excluded files should be extracted into helpers that can be tested
 
 Check your coverage before pushing:
@@ -64,7 +64,7 @@ make coverage
 | Live server round-trips | `tests/integration/` |
 
 Headless tests run via `nvim --headless` with `tests/minimal_init.lua`.
-They have access to `vim.api`, `vim.fn`, and so on — but not a real display.
+They have access to `vim.api`, `vim.fn`, and so on, but not a real display.
 
 ---
 

@@ -13,7 +13,7 @@ swank.nvim uses `vim.uv` (libuv bindings), `vim.api.nvim_open_win` with the
 `relative = "editor"` field, and `vim.diagnostic.set`. All of these are
 available in 0.10; some behaviour is improved in 0.13.
 
-No Vimscript compatibility layer is needed — this plugin is pure Lua.
+This plugin is pure Lua; no Vimscript compatibility layer is needed.
 
 ---
 
@@ -115,7 +115,7 @@ Then connect from Neovim with `<Leader>lc`.
 
 Port **4005** is the default for external servers. If you use autostart, the
 plugin starts Swank on an ephemeral port (`:port 0`) and connects
-automatically — no port configuration needed.
+automatically. No port configuration is needed.
 
 ---
 

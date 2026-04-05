@@ -99,7 +99,7 @@ keymaps from a Lisp source buffer.
 ### REPL doesn't open automatically
 
 Check that `require("swank").attach(bufnr)` is being called for your Lisp buffers.
-The auto-open is triggered from `ui/repl.lua:M.append()` — which is only called
+The auto-open is triggered from `ui/repl.lua:M.append()`, which is only called
 if the client is wired up.
 
 ### REPL opens in the wrong place

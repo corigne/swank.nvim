@@ -113,7 +113,7 @@ Then connect with `<Leader>lc` (or `<Leader>rr` to start + connect).
 
 | Value | Behaviour |
 |-------|-----------|
-| `"auto"` | Picks the best layout at runtime — see [Architecture: REPL adaptive layout](Architecture#repl-adaptive-layout) |
+| `"auto"` | Picks the best layout at runtime (see [Architecture: REPL adaptive layout](Architecture#repl-adaptive-layout)) |
 | `"right"` | Vertical split on the right |
 | `"left"` | Vertical split on the left |
 | `"bottom"` | Horizontal split below |
@@ -132,7 +132,7 @@ Then connect with `<Leader>lc` (or `<Leader>rr` to start + connect).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `ui.floating.border` | `string` | `"rounded"` | Any border value accepted by Neovim for `nvim_open_win()` — see `:h nvim_open_win()`. Common values: `"rounded"`, `"single"`, `"double"`, `"solid"`, `"none"` |
+| `ui.floating.border` | `string` | `"rounded"` | Any border value accepted by Neovim for `nvim_open_win()` (see `:h nvim_open_win()`). Common values: `"rounded"`, `"single"`, `"double"`, `"solid"`, `"none"` |
 
 ---
 
