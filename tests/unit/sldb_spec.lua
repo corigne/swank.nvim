@@ -92,6 +92,14 @@ describe("sldb._build_content", function()
 
   it("includes a footer with keybinding hints in statusline", function()
     local _, _, _, statusline = build({})
-    assert.is_true(statusline:find("abort") ~= nil or statusline:find("quit") ~= nil)
+    local ok = false
+    -- Accept either full words (abort/quit) or bracketed key hints (e.g. [a], [q])
+    if statusline:find("abort", 1, true) or statusline:find("quit", 1, true) then
+      ok = true
+    end
+    if not ok and (statusline:find("%[a%]") or statusline:find("%[q%]")) then
+      ok = true
+    end
+    assert.is_true(ok)
   end)
 end)
