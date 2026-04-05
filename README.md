@@ -325,7 +325,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for coverage requirements (80% floor, 100
 ## Acknowledgements
 
 - [SLIME](https://github.com/slime/slime) — the original Swank protocol and the Emacs CL environment this is modelled after
-- [Swank](https://github.com/slime/slime/blob/master/swank.lisp) — the server-side protocol implementation included with SBCL and other implementations
+- [Swank](https://github.com/slime/slime/blob/master/swank.lisp) — the server-side protocol implementation from the SLIME project, typically installed via SLIME/Quicklisp/ASDF or system packages
 - [vlime](https://github.com/vlime/vlime) and [nvlime](https://github.com/monkoose/nvlime) — prior Neovim/Vim Swank clients that proved the concept
 - [Conjure](https://github.com/Olical/conjure) — inspiration for a clean Neovim-native Lisp workflow
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim) — test harness (busted runner) used throughout the test suite
