@@ -107,7 +107,7 @@ Then connect with `<Leader>lc` (or `<Leader>rr` to start + connect).
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `ui.repl.position` | `string` | `"auto"` | Window placement strategy |
-| `ui.repl.size` | `number` | `0.45` | Width (for vertical splits) or height (for horizontal) as fraction `(0 < size <= 1)` or fixed integer |
+| `ui.repl.size` | `number` | `0.45` | Width (for vertical splits) or height (for horizontal) as fraction `(0 < size <= 1)` or fixed columns/rows |
 
 ### Position values
 

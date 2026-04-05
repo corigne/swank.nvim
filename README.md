@@ -37,7 +37,7 @@ swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built
 - [x] Arglist autodoc (`CursorHoldI` → echo area)
 - [x] SLDB debugger — floating window, restart/frame/eval-in-frame
 - [x] Object inspector — navigable parts, back/reinspect
-- [x] Cross-reference (xref) → quickfix / direct jump
+- [x] Cross-reference (xref) → picker or quickfix / direct jump for single result
 - [x] Compiler notes → `vim.diagnostic`
 - [x] Trace dialog (SWANK-TRACE-DIALOG)
 - [x] which-key integration
@@ -310,8 +310,8 @@ so the familiar muscle memory works without a Language Server:
 |-----|--------|
 | `gd` | Go to definition (Swank xref) |
 | `K` | Describe / hover (floating popup) |
-| `gr` | Find references → quickfix |
-| `gR` | Find callers → quickfix |
+| `gr` | Find references → picker or quickfix |
+| `gR` | Find callers → picker or quickfix |
 | `<C-k>` | Arglist / signature help (normal + insert) |
 
 ## Documentation

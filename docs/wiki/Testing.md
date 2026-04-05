@@ -30,6 +30,12 @@ Run headless — no display, no server needed. Neovim's full Lua API is availabl
 | `transport_spec.lua` | Message framing: `_feed()` with partial frames, multiple frames, split boundaries |
 | `client_spec.lua` | RPC helpers (`_is_symbol_like`, `_plist`), cursor form extraction, callback dispatch |
 | `repl_spec.lua` | REPL adaptive layout logic: `effective_pos`, `resolve_size`, auto-open behaviour |
+| `inspector_spec.lua` | Inspector content rendering: section parsing, action list display |
+| `sldb_spec.lua` | SLDB buffer rendering: frame formatting, restart list display |
+| `trace_spec.lua` | Trace dialog: `parse_entry` logic, `push_entries`/`set_specs` state management |
+| `notes_spec.lua` | Compiler notes / diagnostics helpers: note-to-diagnostic conversion |
+| `xref_spec.lua` | Cross-reference location parsing (`_extract_location`) and quickfix list building (`_refs_to_qflist`) |
+| `init_spec.lua` | Plugin init module: `setup()` option merging, `attach()` autocmd registration |
 
 ### Minimal init
 

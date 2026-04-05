@@ -9,10 +9,10 @@ interactive prompts.
 ## Opening the REPL
 
 The REPL window opens automatically whenever new output arrives from the server.
-You can also open or focus it manually:
+You can also toggle it manually:
 
 ```
-<Leader>ro
+<Leader>rw
 ```
 
 ---
@@ -61,22 +61,15 @@ REPL window.
 
 ---
 
-## Clearing the REPL
-
-```
-<Leader>rc
-```
-
----
-
 ## Switching packages
 
 ```
-<Leader>rp
+<Leader>lp
 ```
 
 Prompts for a package name and tells the Swank server to switch the active
-evaluation context to that package.
+evaluation context to that package. This is a connection-level setting and is
+available from any Lisp buffer, not just the REPL.
 
 ---
 
