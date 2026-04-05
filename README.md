@@ -33,7 +33,7 @@ swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built
 
 - [x] REPL with floating output buffer
 - [x] Eval: top-level form, region, interactive
-- [x] Completion via `swank:completions` — native blink.cmp source (`swank.blink_source`), nvim-cmp wrapper documented
+- [x] Completion via `swank:completions` / `swank:fuzzy-completions` — native blink.cmp and nvim-cmp sources with lazy `describe-symbol` documentation
 - [x] Arglist autodoc (`CursorHoldI` → echo area)
 - [x] SLDB debugger — floating window, restart/frame/eval-in-frame
 - [x] Object inspector — navigable parts, back/reinspect
@@ -177,100 +177,12 @@ vim.api.nvim_create_autocmd("FileType", {
 
 ## Completions
 
-swank.nvim ships a native completion source in `lua/swank/blink_source.lua`.
-It calls `swank:completions` on every keystroke when a server is connected,
-and is a no-op when disconnected (falls back to whatever other sources you have).
+swank.nvim ships native sources for blink.cmp and nvim-cmp. Both support
+lazy documentation previews via `swank:describe-symbol` when you dwell on
+a completion item.
 
-### blink.cmp
-
-```lua
-require("blink.cmp").setup({
-  sources = {
-    per_filetype = {
-      lisp       = { "swank", "buffer" },
-      commonlisp = { "swank", "buffer" },
-    },
-    providers = {
-      swank = {
-        name   = "Swank",
-        module = "swank.blink_source",
-      },
-    },
-  },
-})
-```
-
-### nvim-cmp
-
-nvim-cmp uses a different source interface. Add this thin wrapper anywhere on
-your runtime path (e.g. `lua/cmp_swank.lua`):
-
-```lua
--- lua/cmp_swank.lua
-local M = {}
-
-M.new = function()
-  return setmetatable({}, { __index = M })
-end
-
-M.get_keyword_pattern = function()
-  return [[[a-zA-Z0-9\-\+\*\/\<\>\=\!\?\:\&\#\@\$\^\~\.]+]]
-end
-
-M.complete = function(_, params, callback)
-  local ok, client = pcall(require, "swank.client")
-  if not ok or not client.is_connected() then
-    callback({ items = {}, isIncomplete = false })
-    return
-  end
-  local prefix = params.context.cursor_before_line:match("[%w%-%+%*%/%<%>%=%!%?%:%&%#%@%$%%^~%.]+$") or ""
-  if prefix == "" then
-    callback({ items = {}, isIncomplete = false })
-    return
-  end
-  client.rex({ "swank:completions", prefix, client.get_package() }, function(result)
-    if type(result) ~= "table" or result[1] ~= ":ok" then
-      callback({ items = {}, isIncomplete = false })
-      return
-    end
-    local list = (type(result[2]) == "table" and result[2][1]) or {}
-    local items = {}
-    for _, c in ipairs(list) do
-      if type(c) == "string" then
-        table.insert(items, { label = c, kind = vim.lsp.protocol.CompletionItemKind.Function })
-      end
-    end
-    callback({ items = items, isIncomplete = false })
-  end)
-end
-
-return M
-```
-
-Then register it:
-
-```lua
-require("cmp").setup.filetype({ "lisp", "commonlisp" }, {
-  sources = {
-    { name = "swank" },
-    { name = "buffer" },
-  },
-})
-require("cmp").register_source("swank", require("cmp_swank"))
-```
-
-### Other plugins
-
-Any plugin that honours `omnifunc` (coq_nvim, mini.completion, etc.) can be
-wired by setting the buffer option. swank.nvim does **not** set `omnifunc`
-automatically, so add this to your FileType autocmd if needed:
-
-```lua
-vim.bo[args.buf].omnifunc = "v:lua.require'swank.client'.complete_omnifunc"
-```
-
-*(A proper `complete_omnifunc` shim is planned; for now blink.cmp and nvim-cmp
-are the recommended paths.)*
+See **[Completions wiki page](docs/wiki/Completions.md)** for full setup
+instructions, source module paths, and engine-specific options.
 
 ## Default keybindings
 
