@@ -41,23 +41,13 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-### 3. Start Swank in your Lisp project
+### 3. Open a Lisp file
 
-```lisp
-;; start-swank.lisp
-(require :swank)
-(swank:create-server :port 4005 :dont-close t)
-```
+Open any `.lisp` or `.cl` file — swank.nvim spawns SBCL and connects
+automatically. The REPL appears as soon as the server is ready.
 
-```sh
-sbcl --load start-swank.lisp
-```
-
-### 4. Connect from Neovim
-
-```
-<Leader>lc  (Connect to Swank server)
-```
+To connect to an already-running Swank server instead (e.g. on a remote host),
+disable autostart and use `<Leader>lc` to connect manually.
 
 ---
 

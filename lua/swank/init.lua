@@ -16,8 +16,8 @@ local default_config = {
   -- UI settings
   ui = {
     repl = {
-      -- "auto"|"right"|"left"|"top"|"bottom"|"float"
-      -- "auto" picks based on editor width: >=120→right, >=80→bottom, else float
+      -- "auto" picks the best layout based on terminal size:
+      -- right split if REPL gets >=80 cols, bottom if >=12 rows, else float
       position = "auto",
       -- fraction of editor width/height (0 < size <= 1) or fixed columns/rows
       size = 0.45,
