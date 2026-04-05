@@ -40,6 +40,13 @@ local function refs_to_qflist(refs, kind)
   return qf
 end
 
+--- Returns true if something (telescope-ui-select, snacks, dressing, etc.)
+--- has replaced the default vim.ui.select implementation.
+local function ui_select_is_hooked()
+  local info = debug.getinfo(vim.ui.select, "S")
+  return not (info and info.source and info.source:find("vim/_core", 1, true))
+end
+
 local function jump_to(entry)
   vim.cmd("edit " .. vim.fn.fnameescape(entry.filename))
   vim.schedule(function()
@@ -84,12 +91,18 @@ function M.show(result, kind)
     return
   end
 
-  vim.ui.select(entries, {
-    prompt      = "swank: " .. kind,
-    format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
-  }, function(choice)
-    if choice then jump_to(choice) end
-  end)
+  -- Multiple results — use vim.ui.select if hooked, else quickfix
+  if ui_select_is_hooked() then
+    vim.ui.select(entries, {
+      prompt      = "swank: " .. kind,
+      format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
+    }, function(choice)
+      if choice then jump_to(choice) end
+    end)
+  else
+    vim.fn.setqflist({}, "r", { title = "swank: " .. kind, items = entries })
+    vim.cmd("copen")
+  end
 end
 
 -- Exported for testing
