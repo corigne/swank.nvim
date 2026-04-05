@@ -1,5 +1,6 @@
 -- swank.nvim — blink.cmp completion source
 -- Provides symbol completions via swank:completions.
+-- Supports resolve() for lazy swank:describe-symbol documentation.
 -- Register in blink.cmp opts:
 --   providers = { swank = { name = "Swank", module = "swank.blink_source" } }
 --   per_filetype = { lisp = { "swank", "buffer" }, commonlisp = { "swank", "buffer" } }
@@ -69,6 +70,23 @@ function M:get_completions(ctx, callback)
       end
     end
     callback({ items = items, isIncomplete = false })
+  end)
+end
+
+--- Lazily enrich a completion item with swank:describe-symbol output.
+--- blink.cmp calls this when the user dwells on an item in the menu.
+function M:resolve(item, callback)
+  local ok, client = pcall(require, "swank.client")
+  if not ok or not client.is_connected() or not item.label or item.label == "" then
+    callback(item)
+    return
+  end
+  client.rex({ "swank:describe-symbol", item.label }, function(result)
+    if type(result) == "table" and result[1] == ":ok" and result[2] then
+      local text = tostring(result[2]):gsub("\r", "")
+      item.documentation = { kind = "markdown", value = text }
+    end
+    callback(item)
   end)
 end
 
