@@ -567,11 +567,30 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Show arglist for the innermost operator at cursor in the echo area
-function M.autodoc()
+-- Accept an optional 'force' argument: when true, run even in insert mode.
+function M.autodoc(force)
+  -- Don't auto-show in insert mode to avoid spamming the echo area.
+  if not force and vim.api.nvim_get_mode().mode == "i" then return end
+
+  -- Debug: log invocations and stacktrace so we can find who triggers autodoc.
+  pcall(function()
+    local fp = io.open("/tmp/swank_autodoc_traces.log", "a")
+    if not fp then return end
+    local ts = os.date("%Y-%m-%dT%H:%M:%S")
+    local mode = vim.api.nvim_get_mode().mode
+    local buf = vim.api.nvim_get_current_buf()
+    local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+    fp:write(string.format("%s mode=%s buf=%d cursor=%d:%d\n", ts, mode, buf, row, col))
+    fp:write(debug.traceback(nil, 2) .. "\n\n")
+    fp:close()
+  end)
+
   if not M.is_connected() then return end
   local sym = M._innermost_operator()
   if not sym or sym == "" then return end
-  M.rex(
+
+  -- Use silent_rex to avoid :write-string side effects while fetching arglists.
+  M.silent_rex(
     { "swank:operator-arglist", sym, current_package },
     function(result)
       if type(result) == "table" and result[1] == ":ok" and result[2] then
