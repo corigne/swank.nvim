@@ -1,6 +1,6 @@
 -- swank.nvim — cross-reference UI
 -- Uses vim.ui.select for multi-result display (snacks/telescope/dressing hook
--- this automatically); falls back to Neovim's built-in numbered selector.
+-- this automatically); falls back to a quickfix list when no picker is hooked.
 
 local M = {}
 
@@ -40,9 +40,26 @@ local function refs_to_qflist(refs, kind)
   return qf
 end
 
+--- Returns true if something (telescope-ui-select, snacks, dressing, etc.)
+--- has replaced the default vim.ui.select implementation.
+local function ui_select_is_hooked()
+  local ok, info = pcall(debug.getinfo, vim.ui.select, "S")
+  if not ok or type(info) ~= "table" or type(info.source) ~= "string" then
+    return false
+  end
+  local source = info.source
+  if source:sub(1, 1) == "@" then source = source:sub(2) end
+  source = source:gsub("\\", "/"):lower()
+  return source:find("vim/ui.lua", 1, true) == nil
+end
+
 local function jump_to(entry)
   vim.cmd("edit " .. vim.fn.fnameescape(entry.filename))
-  vim.api.nvim_win_set_cursor(0, { entry.lnum, 0 })
+  vim.schedule(function()
+    local line_count = vim.api.nvim_buf_line_count(0)
+    local lnum = math.max(1, math.min(entry.lnum, line_count))
+    vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+  end)
 end
 
 --- Show cross-reference results
@@ -81,16 +98,23 @@ function M.show(result, kind)
     return
   end
 
-  vim.ui.select(entries, {
-    prompt      = "swank: " .. kind,
-    format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
-  }, function(choice)
-    if choice then jump_to(choice) end
-  end)
+  -- Multiple results — use vim.ui.select if hooked, else quickfix
+  if ui_select_is_hooked() then
+    vim.ui.select(entries, {
+      prompt      = "swank: " .. kind,
+      format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
+    }, function(choice)
+      if choice then jump_to(choice) end
+    end)
+  else
+    vim.fn.setqflist({}, "r", { title = "swank: " .. kind, items = entries })
+    vim.cmd("copen")
+  end
 end
 
 -- Exported for testing
-M._extract_location = extract_location
-M._refs_to_qflist   = refs_to_qflist
+M._extract_location     = extract_location
+M._refs_to_qflist       = refs_to_qflist
+M._ui_select_is_hooked  = ui_select_is_hooked
 
 return M
