@@ -104,7 +104,9 @@ function M.show(result, kind)
       prompt      = "swank: " .. kind,
       format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
     }, function(choice)
-      if choice then jump_to(choice) end
+      if choice then
+        vim.schedule(function() jump_to(choice) end)
+      end
     end)
   else
     vim.fn.setqflist({}, "r", { title = "swank: " .. kind, items = entries })
