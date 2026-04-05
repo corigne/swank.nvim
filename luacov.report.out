@@ -1,5 +1,5 @@
 ==============================================================================
-/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/client.lua
 ==============================================================================
       -- swank.nvim — high-level Swank client
       -- Manages connection lifecycle, emacs-rex call/response, and event routing.
@@ -704,56 +704,56 @@
     3   local bufnr = vim.api.nvim_get_current_buf()
     4   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "commonlisp")
     3   if ok and parser then
-    6     local tree = parser:parse()[1]
-    3     if tree then
-    3       local root = tree:root()
-    3       local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-    3       row = row - 1
-    3       local node = root:named_descendant_for_range(row, col, row, col)
-    7       while node and node:parent() and node:parent() ~= root do
-    4         node = node:parent()
+****0     local tree = parser:parse()[1]
+****0     if tree then
+****0       local root = tree:root()
+****0       local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+****0       row = row - 1
+****0       local node = root:named_descendant_for_range(row, col, row, col)
+****0       while node and node:parent() and node:parent() ~= root do
+****0         node = node:parent()
             end
-    3       if node then
-    3         return vim.treesitter.get_node_text(node, bufnr)
+****0       if node then
+****0         return vim.treesitter.get_node_text(node, bufnr)
             end
           end
         end
-****0   return M._form_at_cursor_paren()
+    3   return M._form_at_cursor_paren()
       end
 
       --- Bracket-aware top-level form scanner (used when treesitter unavailable)
     3 function M._form_at_cursor_paren()
-    5   local bufnr = vim.api.nvim_get_current_buf()
-    5   local cursor_row = vim.api.nvim_win_get_cursor(0)[1]
-    5   local all_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    8   local bufnr = vim.api.nvim_get_current_buf()
+    8   local cursor_row = vim.api.nvim_win_get_cursor(0)[1]
+    8   local all_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-    5   local form_start = cursor_row
-    6   for i = cursor_row, 1, -1 do
-    6     if all_lines[i]:match("^%(") then
-    5       form_start = i
-    5       break
+    8   local form_start = cursor_row
+    9   for i = cursor_row, 1, -1 do
+    9     if all_lines[i]:match("^%(") then
+    8       form_start = i
+    8       break
           end
         end
 
-    5   local collected = {}
-    5   local depth, in_str, esc = 0, false, false
-    8   for i = form_start, #all_lines do
-    8     local line = all_lines[i]
-    8     table.insert(collected, line)
-  122     for j = 1, #line do
-  120       local c = line:sub(j, j)
-  120       if esc then
+    8   local collected = {}
+    8   local depth, in_str, esc = 0, false, false
+   11   for i = form_start, #all_lines do
+   11     local line = all_lines[i]
+   11     table.insert(collected, line)
+  163     for j = 1, #line do
+  161       local c = line:sub(j, j)
+  161       if esc then
 ****0         esc = false
-  120       elseif in_str then
+  161       elseif in_str then
    15         if c == "\\" then esc = true
    15         elseif c == '"' then in_str = false end
             else
-  105         if c == '"' then in_str = true
-  104         elseif c == ";" then break
-  103         elseif c == "(" then depth = depth + 1
-   92         elseif c == ")" then
-   11           depth = depth - 1
-   11           if depth == 0 then return table.concat(collected, "\n") end
+  146         if c == '"' then in_str = true
+  145         elseif c == ";" then break
+  144         elseif c == "(" then depth = depth + 1
+  128         elseif c == ")" then
+   16           depth = depth - 1
+   16           if depth == 0 then return table.concat(collected, "\n") end
               end
             end
           end
@@ -840,7 +840,7 @@
     3 return M
 
 ==============================================================================
-/home/nexus/dev/personal/swank.nvim/lua/swank/init.lua
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/init.lua
 ==============================================================================
     4 local M = {}
 
@@ -926,7 +926,7 @@
     4 return M
 
 ==============================================================================
-/home/nexus/dev/personal/swank.nvim/lua/swank/protocol.lua
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/protocol.lua
 ==============================================================================
       -- swank.nvim — Swank protocol: s-expression parser + serializer + event dispatch
       -- Parses only the subset of s-expressions used in Swank messages.
@@ -1087,7 +1087,7 @@
     4 return M
 
 ==============================================================================
-/home/nexus/dev/personal/swank.nvim/lua/swank/transport.lua
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/transport.lua
 ==============================================================================
       -- swank.nvim — async TCP transport layer
       -- Uses vim.uv (libuv) for non-blocking socket I/O.
@@ -1195,11 +1195,11 @@
 Summary
 ==============================================================================
 
-File                                                        Hits Missed Coverage
---------------------------------------------------------------------------------
-/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua    371  85     81.36%
-/home/nexus/dev/personal/swank.nvim/lua/swank/init.lua      27   5      84.38%
-/home/nexus/dev/personal/swank.nvim/lua/swank/protocol.lua  75   3      96.15%
-/home/nexus/dev/personal/swank.nvim/lua/swank/transport.lua 39   12     76.47%
---------------------------------------------------------------------------------
-Total                                                       512  105    82.98%
+File                                                            Hits Missed Coverage
+------------------------------------------------------------------------------------
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/client.lua    362  94     79.39%
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/init.lua      27   5      84.38%
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/protocol.lua  75   3      96.15%
+/home/runner/work/swank.nvim/swank.nvim/lua/swank/transport.lua 39   12     76.47%
+------------------------------------------------------------------------------------
+Total                                                           503  114    81.52%
