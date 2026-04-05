@@ -13,7 +13,7 @@ local function extract_location(loc)
   for _, part in ipairs(loc) do
     if type(part) == "table" then
       local tag = tostring(part[1] or ""):lower()
-      if tag == ":file" then file = tostring(part[2] or "")
+      if tag == ":file" then file = part[2] ~= nil and tostring(part[2]) or nil
       elseif tag == ":line" then line = tonumber(part[2]) end
     end
   end
@@ -28,7 +28,7 @@ local function refs_to_qflist(refs, kind)
       local name = tostring(ref[1] or "")
       local loc  = ref[2]
       local file, line = extract_location(loc)
-      if file then
+      if file and file ~= "" then
         table.insert(qf, {
           filename = file,
           lnum     = line or 1,
@@ -105,13 +105,13 @@ function M.show(result, kind)
       format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
     }, function(choice)
       if choice then
-        -- Double-schedule: our first vim.schedule fires before Telescope queues
-        -- its own cursor-restore cleanup. The inner schedule runs after that
-        -- cleanup, so the buffer swap happens after Telescope has finished
-        -- restoring state (avoiding "Invalid cursor line: out of range").
-        vim.schedule(function()
-          vim.schedule(function() jump_to(choice) end)
-        end)
+        -- Use vim.defer_fn (timer-based) rather than vim.schedule so our jump
+        -- fires after Telescope's full async cleanup chain has completed.
+        -- vim.schedule is FIFO within the same event loop phase; Telescope
+        -- uses multiple rounds of it for cursor-restore, so even double-
+        -- schedule is not enough. A timer fires after all pending scheduled
+        -- callbacks, giving Telescope time to fully close.
+        vim.defer_fn(function() jump_to(choice) end, 50)
       end
     end)
   else
