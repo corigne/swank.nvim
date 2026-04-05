@@ -1,6 +1,6 @@
 -- swank.nvim — cross-reference UI
 -- Uses vim.ui.select for multi-result display (snacks/telescope/dressing hook
--- this automatically); falls back to Neovim's built-in numbered selector.
+-- this automatically); falls back to a quickfix list when no picker is hooked.
 
 local M = {}
 
@@ -43,14 +43,21 @@ end
 --- Returns true if something (telescope-ui-select, snacks, dressing, etc.)
 --- has replaced the default vim.ui.select implementation.
 local function ui_select_is_hooked()
-  local info = debug.getinfo(vim.ui.select, "S")
-  return not (info and info.source and info.source:find("vim/_core", 1, true))
+  local ok, info = pcall(debug.getinfo, vim.ui.select, "S")
+  if not ok or type(info) ~= "table" or type(info.source) ~= "string" then
+    return false
+  end
+  local source = info.source
+  if source:sub(1, 1) == "@" then source = source:sub(2) end
+  source = source:gsub("\\", "/"):lower()
+  return source:find("vim/ui.lua", 1, true) == nil
 end
 
 local function jump_to(entry)
   vim.cmd("edit " .. vim.fn.fnameescape(entry.filename))
   vim.schedule(function()
-    local lnum = math.min(entry.lnum, vim.api.nvim_buf_line_count(0))
+    local line_count = vim.api.nvim_buf_line_count(0)
+    local lnum = math.max(1, math.min(entry.lnum, line_count))
     vim.api.nvim_win_set_cursor(0, { lnum, 0 })
   end)
 end
@@ -106,7 +113,8 @@ function M.show(result, kind)
 end
 
 -- Exported for testing
-M._extract_location = extract_location
-M._refs_to_qflist   = refs_to_qflist
+M._extract_location     = extract_location
+M._refs_to_qflist       = refs_to_qflist
+M._ui_select_is_hooked  = ui_select_is_hooked
 
 return M
