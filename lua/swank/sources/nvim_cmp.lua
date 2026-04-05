@@ -84,10 +84,10 @@ function Source:resolve(completion_item, callback)
   end
   client.rex({ "swank:describe-symbol", label }, function(result)
     if type(result) == "table" and result[1] == ":ok" and result[2] then
-      local text = tostring(result[2]):gsub("\r", "")
+      local text = tostring(result[2]):gsub("\r", ""):gsub("%s+$", "")
       completion_item.documentation = {
         kind  = cmp.lsp.MarkupKind.Markdown,
-        value = text,
+        value = "```\n" .. text .. "\n```",
       }
     end
     callback(completion_item)

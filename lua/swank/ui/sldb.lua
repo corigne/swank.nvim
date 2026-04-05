@@ -158,8 +158,9 @@ local function build_content()
   -- Winbar: pinned title line (shown above the scrollable buffer)
   local winbar = string.format("%%#DiagnosticError#  SLDB  level %d  %%#Normal#", state.level)
 
-  -- Statusline: pinned keymap hint (shown below the scrollable buffer)
-  local statusline = "  [0-9] restart  [a] abort  [c] continue  [q] quit  [e] eval  [v] source  [l] locals"
+  -- Statusline: pinned keymap hint. %< marks the truncation point so the
+  -- critical keys on the left are preserved on narrow windows.
+  local statusline = "  [0-9] restart  [a] abort  [c] cont  [q] quit%<  [e] eval  [v] src  [l] locals"
 
   return lines, { restart_lines = restart_lines, frame_lines = frame_lines }, winbar, statusline
 end
