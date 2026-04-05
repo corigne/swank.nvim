@@ -1,6 +1,6 @@
 -- swank.nvim — cross-reference UI
--- Uses vim.ui.select for multi-result display (snacks/telescope/dressing hook
--- this automatically); falls back to a quickfix list when no picker is hooked.
+-- Uses native Telescope picker when Telescope is available; vim.ui.select for
+-- other pickers (Snacks, Dressing, etc.); quickfix list as final fallback.
 
 local M = {}
 
@@ -40,6 +40,15 @@ local function refs_to_qflist(refs, kind)
   return qf
 end
 
+local function jump_to(entry)
+  vim.cmd("edit " .. vim.fn.fnameescape(entry.filename))
+  vim.schedule(function()
+    local line_count = vim.api.nvim_buf_line_count(0)
+    local lnum = math.max(1, math.min(entry.lnum, line_count))
+    vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+  end)
+end
+
 --- Returns true if something (telescope-ui-select, snacks, dressing, etc.)
 --- has replaced the default vim.ui.select implementation.
 local function ui_select_is_hooked()
@@ -53,13 +62,42 @@ local function ui_select_is_hooked()
   return source:find("vim/ui.lua", 1, true) == nil
 end
 
-local function jump_to(entry)
-  vim.cmd("edit " .. vim.fn.fnameescape(entry.filename))
-  vim.schedule(function()
-    local line_count = vim.api.nvim_buf_line_count(0)
-    local lnum = math.max(1, math.min(entry.lnum, line_count))
-    vim.api.nvim_win_set_cursor(0, { lnum, 0 })
-  end)
+--- Open a native Telescope picker for xref results.
+--- This bypasses vim.ui.select / telescope-ui-select entirely. That wrapper
+--- has a bug where it tries to set cursor to self.max_results in the results
+--- buffer (which has fewer lines than max_results for small result sets) after
+--- scheduling our callback — causing "Invalid cursor line: out of range".
+--- Using the native picker API with attach_mappings + actions.close is the
+--- correct pattern: close() completes before we touch any buffers.
+local function show_with_telescope(entries, kind)
+  local pickers      = require("telescope.pickers")
+  local finders      = require("telescope.finders")
+  local conf         = require("telescope.config").values
+  local actions      = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+
+  pickers.new({}, {
+    prompt_title = "swank: " .. kind,
+    finder = finders.new_table({
+      results = entries,
+      entry_maker = function(e)
+        return {
+          value   = e,
+          display = e.text .. "  " .. e.filename .. ":" .. e.lnum,
+          ordinal = e.text .. " " .. e.filename,
+        }
+      end,
+    }),
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr)
+      actions.select_default:replace(function()
+        local entry = action_state.get_selected_entry()
+        actions.close(prompt_bufnr)
+        if entry then jump_to(entry.value) end
+      end)
+      return true
+    end,
+  }):find()
 end
 
 --- Show cross-reference results
@@ -98,19 +136,19 @@ function M.show(result, kind)
     return
   end
 
-  -- Multiple results — use vim.ui.select if hooked, else quickfix
-  if ui_select_is_hooked() then
+  -- Multiple results — prefer native Telescope picker (bypasses the
+  -- telescope-ui-select bug), then vim.ui.select for other pickers
+  -- (Snacks etc. close before calling our callback so defer_fn is safe),
+  -- then quickfix as the final fallback.
+  local has_telescope = pcall(require, "telescope")
+  if has_telescope then
+    show_with_telescope(entries, kind)
+  elseif ui_select_is_hooked() then
     vim.ui.select(entries, {
       prompt      = "swank: " .. kind,
       format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
     }, function(choice)
       if choice then
-        -- Use vim.defer_fn (timer-based) rather than vim.schedule so our jump
-        -- fires after Telescope's full async cleanup chain has completed.
-        -- vim.schedule is FIFO within the same event loop phase; Telescope
-        -- uses multiple rounds of it for cursor-restore, so even double-
-        -- schedule is not enough. A timer fires after all pending scheduled
-        -- callbacks, giving Telescope time to fully close.
         vim.defer_fn(function() jump_to(choice) end, 50)
       end
     end)
