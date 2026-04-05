@@ -1,14 +1,20 @@
 # Completions
 
-swank.nvim ships a native blink.cmp source and documents an nvim-cmp wrapper.
-Completions come from `swank:completions` (standard) and optionally
-`swank:fuzzy-completions` (fuzzy matching).
+swank.nvim ships native completion sources for blink.cmp and nvim-cmp.
+Both engines get lazy documentation previews via `swank:describe-symbol`
+when you dwell on an item. Completions come from `swank:completions`
+(standard) or `swank:fuzzy-completions` (fuzzy matching, blink primary source).
 
 ---
 
 ## blink.cmp (recommended)
 
-Add `swank` to your blink.cmp provider list for Lisp buffers:
+Two sources are available — use whichever fits your setup:
+
+| Module | Backend | Fuzzy | Notes |
+|---|---|---|---|
+| `swank.blink_source` | `swank:completions` | No | Simpler, broader trigger |
+| `swank.sources.blink` | `swank:fuzzy-completions` | Yes | Ranked results, `:` trigger |
 
 ```lua
 -- plugins.lua or wherever blink.cmp is configured
@@ -19,7 +25,7 @@ Add `swank` to your blink.cmp provider list for Lisp buffers:
       providers = {
         swank = {
           name   = "Swank",
-          module = "swank.blink_source",
+          module = "swank.blink_source",  -- or "swank.sources.blink" for fuzzy
         },
       },
       per_filetype = {
@@ -31,56 +37,22 @@ Add `swank` to your blink.cmp provider list for Lisp buffers:
 }
 ```
 
-The source is automatically disabled when no Swank connection is active
-(`client.is_connected()` returns false), so it coexists safely with other
-sources without producing errors.
-
-### What it provides
-
-- Symbol completions scoped to the current package
-- Package-qualified completions (`package:symbol`)
-- Package prefix completions (`package:`)
-- Completion items include kind (`Function`, `Variable`, `Type`, etc.) when
-  Swank provides it
+The source is automatically disabled when no Swank connection is active,
+so it coexists safely with other sources without producing errors.
 
 ---
 
 ## nvim-cmp
 
-nvim-cmp doesn't support the blink source interface. Register swank as a
-custom source:
+swank.nvim ships a native nvim-cmp source at `lua/swank/sources/nvim_cmp.lua`.
+Load it once (it self-registers), then add `"swank"` to your sources:
 
 ```lua
+-- Anywhere before nvim-cmp completes its setup (e.g. in your plugin init)
+require("swank.sources.nvim_cmp")
+
+-- Per-filetype sources
 local cmp = require("cmp")
-
-cmp.register_source("swank", {
-  is_available = function()
-    return require("swank.client").is_connected()
-  end,
-
-  get_keyword_pattern = function()
-    -- match CL symbols including package prefix and special chars
-    return [[\k\+]]
-  end,
-
-  complete = function(self, request, callback)
-    local line_before = request.context.cursor_before_line
-    local prefix = line_before:match("[%w%-:]+$") or ""
-    if prefix == "" then callback({ items = {}, isIncomplete = false }); return end
-
-    require("swank.client"):completions(prefix, function(result)
-      if not result then callback({ items = {}, isIncomplete = false }); return end
-      local completions = result[2] and result[2][1] or {}
-      local items = {}
-      for _, comp in ipairs(completions) do
-        table.insert(items, { label = comp, kind = cmp.lsp.CompletionItemKind.Function })
-      end
-      callback({ items = items, isIncomplete = false })
-    end)
-  end,
-})
-
--- Then add "swank" to your sources:
 cmp.setup.filetype({ "lisp", "commonlisp" }, {
   sources = cmp.config.sources({
     { name = "swank" },
@@ -89,22 +61,19 @@ cmp.setup.filetype({ "lisp", "commonlisp" }, {
 })
 ```
 
+The source is automatically disabled when no Swank connection is active.
+
 ---
 
-## omnifunc (fallback)
+## Completion documentation
 
-For any completion plugin that respects `omnifunc`, set:
+Both the blink.cmp and nvim-cmp sources implement `resolve()` — the lazy
+callback each engine calls when you dwell on an item in the completion menu.
+On resolve, the source fires `swank:describe-symbol` and populates the
+`documentation` field (LSP `MarkupContent`) with the full symbol description.
 
-```lua
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "lisp", "commonlisp" },
-  callback = function()
-    vim.bo.omnifunc = "v:lua.require'swank.client'.omnifunc"
-  end,
-})
-```
-
-Trigger with `<C-x><C-o>` in insert mode.
+No extra configuration is needed; this works automatically with any engine that
+supports completion item resolve (blink.cmp, nvim-cmp).
 
 ---
 
