@@ -10,6 +10,10 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# Allow CI to update repository contents (README badge) when running on main
+permissions:
+  contents: write
+
 jobs:
   # ── Unit tests ─────────────────────────────────────────────────────────────
   unit:
@@ -75,6 +79,16 @@ jobs:
           name: luacov-report
           path: luacov.report.out
           if-no-files-found: warn
+
+      - name: Update README coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Update badge from the generated luacov.report.out
+          bash scripts/update_coverage_badge.sh
+          git add README.md
+          if git diff --staged --quiet; then echo "No badge change"; else git commit -m "ci(badge): update coverage badge" && git push origin HEAD:main; fi
 
   # ── Integration tests ──────────────────────────────────────────────────────
   integration:
