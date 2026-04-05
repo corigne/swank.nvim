@@ -105,7 +105,13 @@ function M.show(result, kind)
       format_item = function(e) return e.text .. "  " .. e.filename .. ":" .. e.lnum end,
     }, function(choice)
       if choice then
-        vim.schedule(function() jump_to(choice) end)
+        -- Double-schedule: our first vim.schedule fires before Telescope queues
+        -- its own cursor-restore cleanup. The inner schedule runs after that
+        -- cleanup, so the buffer swap happens after Telescope has finished
+        -- restoring state (avoiding "Invalid cursor line: out of range").
+        vim.schedule(function()
+          vim.schedule(function() jump_to(choice) end)
+        end)
       end
     end)
   else
