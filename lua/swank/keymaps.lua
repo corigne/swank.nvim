@@ -153,9 +153,11 @@ function M.attach(bufnr, config)
     if sym then client.xref_calls(sym) end
   end, "Find callers (Swank)")
 
-  -- <C-k>  — signature help (mirrors vim.lsp.buf.signature_help)
+  -- <C-k>  — signature help (mirrors vim.lsp.buf.signature_help), normal mode only.
+  -- Insert-mode <C-k> is intentionally omitted: blink.cmp's super-tab preset
+  -- uses <C-k> for show_signature and falls through to buffer-local keymaps,
+  -- which would fire autodoc unintentionally on every <C-k> press.
   lsp("n", "<C-k>", function() client.autodoc() end, "Arglist / signature help (Swank)")
-  lsp("i", "<C-k>", function() client.autodoc() end, "Arglist / signature help (Swank)")
 
   -- ── which-key groups ─────────────────────────────────────────────────────
   local ok, wk = pcall(require, "which-key")
