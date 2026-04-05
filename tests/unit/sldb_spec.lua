@@ -14,13 +14,9 @@ local function build(state_overrides)
 end
 
 describe("sldb._build_content", function()
-  it("includes the SLDB level in output", function()
-    local lines, _ = build({ level = 3 })
-    local found = false
-    for _, l in ipairs(lines) do
-      if l:find("3") then found = true; break end
-    end
-    assert.is_true(found, "expected level 3 to appear in SLDB output")
+  it("includes the SLDB level in winbar", function()
+    local _, _, winbar = build({ level = 3 })
+    assert.is_true(winbar:find("3") ~= nil, "expected level 3 to appear in winbar")
   end)
 
   it("includes condition description", function()
@@ -94,9 +90,8 @@ describe("sldb._build_content", function()
     end)
   end)
 
-  it("includes a footer with keybinding hints", function()
-    local lines, _ = build({})
-    local text = table.concat(lines, "\n")
-    assert.is_true(text:find("abort") ~= nil or text:find("quit") ~= nil)
+  it("includes a footer with keybinding hints in statusline", function()
+    local _, _, _, statusline = build({})
+    assert.is_true(statusline:find("abort") ~= nil or statusline:find("quit") ~= nil)
   end)
 end)

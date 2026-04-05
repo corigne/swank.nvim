@@ -2,6 +2,8 @@
 -- Opens a floating window when Swank sends a :debug event.
 -- Keymaps in the SLDB buffer allow restart invocation, frame navigation,
 -- and eval-in-frame without leaving Neovim.
+-- The window title and condition are pinned in winbar; the keymap hint is
+-- pinned in statusline. Scroll indicators appear when content overflows.
 
 local M = {}
 
@@ -16,15 +18,17 @@ local M = {}
 ---@field level   integer
 ---@field restarts table  list of {name, desc}
 ---@field frames  table   list of {number, desc}
+---@field scroll_ns integer  extmark namespace for scroll indicators
 
 ---@type SldbState
 local state = {
-  bufnr    = nil,
-  winnr    = nil,
-  thread   = nil,
-  level    = 0,
-  restarts = {},
-  frames   = {},
+  bufnr     = nil,
+  winnr     = nil,
+  thread    = nil,
+  level     = 0,
+  restarts  = {},
+  frames    = {},
+  scroll_ns = vim.api.nvim_create_namespace("swank.sldb.scroll"),
 }
 
 -- ---------------------------------------------------------------------------
@@ -71,31 +75,64 @@ local function hl(group, first_line, last_line)
   end
 end
 
+--- Update the ↑/↓ scroll indicator extmarks for the current scroll position.
+local function update_scroll_indicators()
+  if not state.winnr or not vim.api.nvim_win_is_valid(state.winnr) then return end
+  if not state.bufnr or not vim.api.nvim_buf_is_valid(state.bufnr) then return end
+
+  vim.api.nvim_buf_clear_namespace(state.bufnr, state.scroll_ns, 0, -1)
+
+  local total     = vim.api.nvim_buf_line_count(state.bufnr)
+  local top_line  = vim.fn.line("w0", state.winnr)   -- 1-indexed first visible
+  local bot_line  = vim.fn.line("w$", state.winnr)   -- 1-indexed last visible
+
+  local above = top_line - 1
+  local below = total - bot_line
+
+  if above > 0 then
+    vim.api.nvim_buf_set_extmark(state.bufnr, state.scroll_ns, top_line - 1, 0, {
+      virt_text = { { "  ↑ " .. above .. " more ", "Comment" } },
+      virt_text_pos = "right_align",
+      priority = 100,
+    })
+  end
+
+  if below > 0 then
+    vim.api.nvim_buf_set_extmark(state.bufnr, state.scroll_ns, bot_line - 1, 0, {
+      virt_text = { { "  ↓ " .. below .. " more ", "Comment" } },
+      virt_text_pos = "right_align",
+      priority = 100,
+    })
+  end
+end
+
 -- ---------------------------------------------------------------------------
 -- Build buffer content
 -- ---------------------------------------------------------------------------
 
----@return string[], table  (lines, {restart_lines=[], frame_lines=[]})
+---@return string[], table, string, string
+--- Returns: buffer lines, meta {restart_lines, frame_lines}, winbar string, statusline string
 local function build_content()
   local lines = {}
   local restart_lines = {}  -- 1-indexed line numbers where restarts appear
   local frame_lines   = {}  -- 1-indexed line numbers where frames appear
 
-  -- Header
-  table.insert(lines, string.rep("─", 60))
-  table.insert(lines, string.format("  SLDB  level %d", state.level))
-  table.insert(lines, string.rep("─", 60))
-  table.insert(lines, "")
-
-  -- Condition
+  -- Condition (goes into buffer since it may be multi-line)
   local cond = state.condition
+  local cond_desc = "Unknown error"
+  local cond_type = nil
   if type(cond) == "table" then
-    table.insert(lines, "  " .. tostring(cond[1] or "Unknown error"))
+    cond_desc = tostring(cond[1] or "Unknown error")
     if cond[2] and cond[2] ~= cond[1] then
-      table.insert(lines, "  Type: " .. tostring(cond[2]))
+      cond_type = tostring(cond[2])
     end
   else
-    table.insert(lines, "  " .. tostring(cond or "Unknown error"))
+    cond_desc = tostring(cond or "Unknown error")
+  end
+
+  table.insert(lines, "  " .. cond_desc)
+  if cond_type then
+    table.insert(lines, "  Type: " .. cond_type)
   end
   table.insert(lines, "")
 
@@ -117,12 +154,14 @@ local function build_content()
     table.insert(lines, string.format("  %3s: %s", fnum, fdesc))
     table.insert(frame_lines, #lines)
   end
-  table.insert(lines, "")
 
-  -- Footer
-  table.insert(lines, "  [0-9] restart  [a] abort  [c] continue  [q] quit  [e] eval in frame")
+  -- Winbar: pinned title line (shown above the scrollable buffer)
+  local winbar = string.format("%%#DiagnosticError#  SLDB  level %d  %%#Normal#", state.level)
 
-  return lines, { restart_lines = restart_lines, frame_lines = frame_lines }
+  -- Statusline: pinned keymap hint (shown below the scrollable buffer)
+  local statusline = "  [0-9] restart  [a] abort  [c] continue  [q] quit  [e] eval  [v] source  [l] locals"
+
+  return lines, { restart_lines = restart_lines, frame_lines = frame_lines }, winbar, statusline
 end
 
 -- ---------------------------------------------------------------------------
@@ -276,12 +315,11 @@ function M.open(msg)
   vim.bo[state.bufnr].buftype   = "nofile"
   vim.bo[state.bufnr].modifiable = false
 
-  local lines, meta = build_content()
+  local lines, meta, winbar, statusline = build_content()
   set_lines(lines)
 
-  -- Highlights
-  hl("DiagnosticError", 1, 2)         -- header
-  hl("DiagnosticWarn",  4, 5)         -- condition
+  -- Highlights (condition lines are now lines 1 and 2 in the buffer)
+  hl("DiagnosticWarn", 0, 1)
   for _, l in ipairs(meta.restart_lines) do
     hl("DiagnosticInfo", l - 1, l - 1)
   end
@@ -295,21 +333,30 @@ function M.open(msg)
   local col    = math.floor((vim.o.columns - width) / 2)
 
   state.winnr = vim.api.nvim_open_win(state.bufnr, true, {
-    relative = "editor",
-    width    = width,
-    height   = height,
-    row      = row,
-    col      = col,
-    style    = "minimal",
-    border   = cfg.border or "rounded",
-    title    = " SLDB ",
+    relative  = "editor",
+    width     = width,
+    height    = height,
+    row       = row,
+    col       = col,
+    style     = "minimal",
+    border    = cfg.border or "rounded",
+    title     = " SLDB ",
     title_pos = "center",
   })
 
-  vim.wo[state.winnr].wrap      = false
+  vim.wo[state.winnr].wrap       = false
   vim.wo[state.winnr].cursorline = true
+  vim.wo[state.winnr].winbar     = winbar
+  vim.wo[state.winnr].statusline = statusline
 
   setup_keymaps()
+
+  -- Scroll indicators (initial + on every scroll)
+  update_scroll_indicators()
+  vim.api.nvim_create_autocmd("WinScrolled", {
+    buffer   = state.bufnr,
+    callback = update_scroll_indicators,
+  })
 
   -- Position cursor on first restart
   if #meta.restart_lines > 0 then
@@ -350,3 +397,4 @@ M._state         = state
 M._build_content = build_content
 
 return M
+
