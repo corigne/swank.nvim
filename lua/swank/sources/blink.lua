@@ -59,13 +59,20 @@ function source:resolve(item, callback)
     callback(item)
     return
   end
-  client.silent_rex({ "swank:describe-symbol", item.label }, function(result)
-    if type(result) == "table" and result[1] == ":ok" and result[2] then
-      local text = tostring(result[2]):gsub("\r", ""):gsub("%s+$", "")
-      item.documentation = { kind = "markdown", value = "```\n" .. text .. "\n```" }
-    end
+  local raw = item.label
+  local s = raw and tostring(raw) or ""
+  s = s:gsub("^#'", ""):gsub("^['`%,]+", ""):match("^%s*(.-)%s*$") or s
+  if client._is_symbol_like(s) then
+    client.silent_rex({ "swank:describe-symbol", s }, function(result)
+      if type(result) == "table" and result[1] == ":ok" and result[2] then
+        local text = tostring(result[2]):gsub("\r", ""):gsub("%s+$", "")
+        item.documentation = { kind = "markdown", value = "```\n" .. text .. "\n```" }
+      end
+      callback(item)
+    end)
+  else
     callback(item)
-  end)
+  end
 end
 
 return source

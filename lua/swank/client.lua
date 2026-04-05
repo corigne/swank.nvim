@@ -279,6 +279,20 @@ protocol.on(":write-string", function(msg)
 end)
 
 protocol.on(":debug", function(msg)
+  -- Suppress debugger activation caused by background 'silent' rex calls
+  if silent_count > 0 then
+    local ok_swank, swank_mod = pcall(require, "swank")
+    if ok_swank and swank_mod.config and swank_mod.config.debug then
+      pcall(function()
+        local fp = io.open("/tmp/swank_silent_debug_events.log", "a")
+        if fp then
+          fp:write(os.date("%FT%T") .. " suppressed :debug — payload=" .. tostring(msg[2]) .. "\n")
+          fp:close()
+        end
+      end)
+    end
+    return
+  end
   require("swank.ui.sldb").open(msg)
 end)
 
@@ -351,10 +365,24 @@ end
 function M.describe(sym)
   -- Sanitize common reader prefixes and whitespace; validate symbol-like input.
   if not sym then return end
-  local s = tostring(sym)
+  local raw_token = tostring(sym)
+  local s = raw_token
   -- Strip #', leading quotes/backticks/commas produced by some editors/completions
   s = s:gsub("^#'", ""):gsub("^['`%,]+", "")
   s = s:match("^%s*(.-)%s*$") or s
+
+  -- Debug log raw->sanitized (only when config.debug)
+  local ok_swank, swank_mod = pcall(require, "swank")
+  if ok_swank and swank_mod.config and swank_mod.config.debug then
+    local ok, f = pcall(io.open, "/tmp/swank_sanitize_debug.log", "a")
+    if ok and f then
+      pcall(function()
+        f:write(os.date("%FT%T") .. " raw=" .. tostring(raw_token) .. " sanitized=" .. tostring(s) .. "\n")
+        f:close()
+      end)
+    end
+  end
+
   if not M._is_symbol_like(s) then return end
 
   -- Use silent_rex so any side-effect :write-string output (e.g. "Unknown symbol:") is suppressed
@@ -582,17 +610,20 @@ function M.autodoc(force)
   if not force and vim.api.nvim_get_mode().mode == "i" then return end
 
   -- Debug: log invocations and stacktrace so we can find who triggers autodoc.
-  pcall(function()
-    local fp = io.open("/tmp/swank_autodoc_traces.log", "a")
-    if not fp then return end
-    local ts = os.date("%Y-%m-%dT%H:%M:%S")
-    local mode = vim.api.nvim_get_mode().mode
-    local buf = vim.api.nvim_get_current_buf()
-    local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-    fp:write(string.format("%s mode=%s buf=%d cursor=%d:%d\n", ts, mode, buf, row, col))
-    fp:write(debug.traceback(nil, 2) .. "\n\n")
-    fp:close()
-  end)
+  local ok_swank, swank_mod = pcall(require, "swank")
+  if ok_swank and swank_mod.config and swank_mod.config.debug then
+    pcall(function()
+      local fp = io.open("/tmp/swank_autodoc_traces.log", "a")
+      if not fp then return end
+      local ts = os.date("%Y-%m-%dT%H:%M:%S")
+      local mode = vim.api.nvim_get_mode().mode
+      local buf = vim.api.nvim_get_current_buf()
+      local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+      fp:write(string.format("%s mode=%s buf=%d cursor=%d:%d\n", ts, mode, buf, row, col))
+      fp:write(debug.traceback(nil, 2) .. "\n\n")
+      fp:close()
+    end)
+  end
 
   if not M.is_connected() then return end
   local sym = M._innermost_operator()
@@ -763,11 +794,14 @@ function M._is_symbol_like(text)
   if not text or text == "" then return false end
   local trimmed = text:match("^%s*(.-)%s*$")
   if trimmed == "" or trimmed:find("%s") then return false end
+  -- Reject tokens that end with ':' (package-only like 'cl-user:')
+  if trimmed:match(":$") then return false end
   -- Reject bare numbers (integers and floats) — not valid symbol names
   if trimmed:match("^%-?%d+%.?%d*$") then return false end
   -- Must contain only valid CL symbol chars: letters, digits, and punctuation
-  -- used in CL identifiers. Colon allowed for package-qualified names.
-  return trimmed:match("^[%a%d%+%-%*%/%@%$%%%%^%&%_%=%<%>%~%.%!%?%|:#]+$") ~= nil
+  -- allow colon for package-qualified names (but not trailing colon)
+  if trimmed:match("^[%a%d%+%-%*%/%@%$%%%%^%&%_%=%<%>%~%.%!%?%|:#]+$") == nil then return false end
+  return true
 end
 
 --- Convert a flat plist to a Lua table keyed by lowercased keyword

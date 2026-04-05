@@ -37,6 +37,8 @@ local default_config = {
     ":swank-c-p-c",
     ":swank-package-fu",
   },
+  -- Debug logging: when true, write debug logs to /tmp/*
+  debug = false,
 }
 
 M.config = {}

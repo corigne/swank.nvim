@@ -82,16 +82,23 @@ function Source:resolve(completion_item, callback)
     callback(completion_item)
     return
   end
-  client.silent_rex({ "swank:describe-symbol", label }, function(result)
-    if type(result) == "table" and result[1] == ":ok" and result[2] then
-      local text = tostring(result[2]):gsub("\r", ""):gsub("%s+$", "")
-      completion_item.documentation = {
-        kind  = cmp.lsp.MarkupKind.Markdown,
-        value = "```\n" .. text .. "\n```",
-      }
-    end
+  local raw = label
+  local s = raw and tostring(raw) or ""
+  s = s:gsub("^#'", ""):gsub("^['`%,]+", ""):match("^%s*(.-)%s*$") or s
+  if client._is_symbol_like(s) then
+    client.silent_rex({ "swank:describe-symbol", s }, function(result)
+      if type(result) == "table" and result[1] == ":ok" and result[2] then
+        local text = tostring(result[2]):gsub("\r", ""):gsub("%s+$", "")
+        completion_item.documentation = {
+          kind  = cmp.lsp.MarkupKind.Markdown,
+          value = "```\n" .. text .. "\n```",
+        }
+      end
+      callback(completion_item)
+    end)
+  else
     callback(completion_item)
-  end)
+  end
 end
 
 cmp.register_source("swank", Source.new())
