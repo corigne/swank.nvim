@@ -52,6 +52,6 @@ NEW_URL="https://img.shields.io/badge/coverage-${PCT_INT}%25-${COLOR}?style=flat
 # Replace the coverage badge line in README.md.
 # We match the whole line that starts with [![Coverage] and replace entirely.
 # Using perl instead of sed to avoid & being interpreted as a back-reference.
-perl -i -pe "s{^\[!\[Coverage\].*\$}{[![Coverage](${NEW_URL})](https://github.com/corigne/swank.nvim/actions/workflows/ci.yml)}" "$README"
+perl -i -pe "s{^\[!\[Coverage\].*\$}{[![Coverage](${NEW_URL})](luacov.report.out)}" "$README"
 
 echo "coverage: ${PCT}% → badge updated (${COLOR})"

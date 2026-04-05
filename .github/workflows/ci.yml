@@ -87,7 +87,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Update badge from the generated luacov.report.out
           bash scripts/update_coverage_badge.sh
-          git add README.md
+          git add README.md luacov.report.out
           if git diff --staged --quiet; then echo "No badge change"; else git commit -m "ci(badge): update coverage badge" && git push origin HEAD:main; fi
 
   # ── Integration tests ──────────────────────────────────────────────────────
