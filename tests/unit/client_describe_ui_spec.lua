@@ -50,7 +50,20 @@ describe("client.describe UI", function()
       __newindex = function(t, k, v) rawset(t, k, v) end,
     })
     vim.api.nvim_buf_set_lines = function(buf, start, _end, strict, lines) captured_lines = lines end
-    vim.api.nvim_open_win = function(buf, enter, opts) opened_opts = opts; vim.wo = vim.wo or {}; vim.wo[fake_win] = {}; return fake_win end
+    -- Provide a window-local opts proxy for numeric window ids
+    local _orig_wo = orig_wo
+    vim.wo = setmetatable({}, {
+      __index = function(t, k)
+        if type(k) == "number" then
+          local tbl = {}
+          rawset(t, k, tbl)
+          return tbl
+        end
+        return (_orig_wo and _orig_wo[k]) or nil
+      end,
+      __newindex = function(t, k, v) rawset(t, k, v) end,
+    })
+    vim.api.nvim_open_win = function(buf, enter, opts) opened_opts = opts; return fake_win end
     vim.api.nvim_win_is_valid = function(win) return true end
     win_closed = false
     vim.api.nvim_win_close = function(win, _) win_closed = true end
