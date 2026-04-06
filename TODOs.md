@@ -3,63 +3,16 @@
 Items here are intentionally deferred past 1.0. They are good ideas but
 out of scope for the initial release.
 
----
-
-## Arg completion hints (snippet-style)
-
-When a completion item is accepted, insert a snippet or virtual-text hint
-showing the lambda list for the selected symbol — similar to what LSP
-servers provide for function signatures.
-
-**Desired UX:** accepting `(mapcar` expands to `(mapcar function list)` with
-the arguments as tab-stops (if a snippet engine is available) or as
-dismissible virtual text (as a fallback).
-
-**Approach:**
-- On `CompletionItemAccepted` (or equivalent blink/nvim-cmp callback),
-  fire `swank:operator-arglist` for the accepted symbol.
-- If a snippet engine is active (LuaSnip, nvim-snippy, blink native),
-  build a snippet string from the arglist and expand it.
-- If no snippet engine is present, render the arglist as extmark virtual
-  text to the right of the cursor; clear it on the next insert or `<Esc>`.
-- The `item.labelDetails.description` field can carry a short arglist
-  preview in the completion menu itself (no engine required).
-
-**Blockers / considerations:**
-- `swank:operator-arglist` is async; need to handle the race between
-  acceptance and the RPC round-trip gracefully.
-- Snippet engine detection should be soft (`pcall`) — never a hard
-  dependency.
-- blink.cmp and nvim-cmp have different post-accept hook APIs; needs
-  separate integration paths.
-
----
-
-## Live diagnostics
-
-Show compiler errors/warnings inline (like LSP diagnostics) without
-requiring an explicit eval.
-
-**Note:** Swank has no push-based lint protocol. SBCL only reports
-conditions when code is compiled or evaluated. True live diagnostics would
-require periodic background compilation of the buffer, which is expensive
-and changes semantics. This is a hard problem; consider only after
-evaluating whether background `compile-string` is acceptable.
-
----
-
-## omnifunc fallback
-
-Implement `vim.bo.omnifunc` using `swank:completions` so that any
-completion plugin honouring `omnifunc` gets basic symbol completion
-without requiring a dedicated source.
-
-**Note:** `omnifunc` is synchronous; the RPC must complete before the
-callback returns. Use `vim.wait` or a coroutine-based approach. Document
-clearly that this blocks the event loop briefly.
-
----
-
-
 ## Tests to add (coverage)
 - Add unit tests covering transport._feed error branches, transport send/read error paths, and client._on_connect follow-ups to raise coverage >80
+
+---
+
+## Investigate Sextant LSP as an alternative backend over SWANK. 
+- Discuss whether it make sense to create an alternative or even supplementary backend to SWANK using standard LSP implementations, targeting sextant, see: https://github.com/parenworks/sextant
+- - Consider the implications for existing SWANK-specific features parity with SLIME, and what our plugin must still cover to bridge the gap. 
+- - Evaluate the performance and feature parity of Sextant compared to SWANK, especially in areas like completions, arg hints, and diagnostics.
+- - Consider the limits of Sextant's nvim plugin compared to swank.nvim.   
+- - Make sure we can even connect to the running SWANK server in the sextant sbcl process, and if so, whether we can use it to support features that are not provided by the LSP.
+- - Investigate the nvim plugin for Sextant as a possible reference implementation for the LSP backend, see if any code can be shared between the two implementations. See: https://github.com/parenworks/sextant.nvim
+- - If all is reasonable, adopt sextant, create a plan to refactor the plugin such that the currently mocked LSP capabilities are maintained as a fallback when LSP is unavailable, but otherwise treat LSP capabilities as first-class; nvim-lspconfig should be respected.
