@@ -46,8 +46,11 @@ describe("client.start_and_connect() timeout", function()
 
     vim.schedule_wrap = function(fn) return fn end
 
-    -- always fail to open the port file
-    io.open = function(path, mode) return nil end
+    -- always fail to open the port file for reads; provide writer for script_file
+    io.open = function(path, mode)
+      if mode == "r" then return nil end
+      return { write = function() end, close = function() end }
+    end
 
     local captured_msg
     vim.notify = function(msg, level) captured_msg = msg end

@@ -48,8 +48,9 @@ describe("client.start_and_connect() malformed port file", function()
     io.open = function(path, mode)
       if mode == "r" then
         return { read = function(_, _p) return "not-a-number" end, close = function() end }
+      else
+        return { write = function() end, close = function() end }
       end
-      return nil
     end
 
     local captured_msg
