@@ -35,8 +35,20 @@ describe("client.describe UI", function()
     created_autocmd = nil
 
     vim.api.nvim_create_buf = function(listed, scratch) return fake_buf end
-    vim.bo = vim.bo or {}
-    vim.bo[fake_buf] = {}
+    -- Provide a buffer-local opts proxy for numeric buffer ids so production
+    -- code can set vim.bo[buf].filetype etc. without touching the real API.
+    local _orig_bo = orig_bo
+    vim.bo = setmetatable({}, {
+      __index = function(t, k)
+        if type(k) == "number" then
+          local tbl = {}
+          rawset(t, k, tbl)
+          return tbl
+        end
+        return (_orig_bo and _orig_bo[k]) or nil
+      end,
+      __newindex = function(t, k, v) rawset(t, k, v) end,
+    })
     vim.api.nvim_buf_set_lines = function(buf, start, _end, strict, lines) captured_lines = lines end
     vim.api.nvim_open_win = function(buf, enter, opts) opened_opts = opts; vim.wo = vim.wo or {}; vim.wo[fake_win] = {}; return fake_win end
     vim.api.nvim_win_is_valid = function(win) return true end
