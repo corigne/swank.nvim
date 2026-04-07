@@ -13,35 +13,44 @@ A modern, pure-Lua Common Lisp development environment for Neovim, built on the 
 
 | Plugin | Status | Notes |
 |---|---|---|
-| vlime | Active | Vimscript, clunky UI |
-| nvlime | **Archived** | Maintainer quit Lisp |
-| conjure | Active | Multi-lang, eval-only for CL |
-
-swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built with modern Neovim APIs throughout.
+| vlime | Active | clunky/limited by the nature of Vim and Vimscript |
+| nvlime | **Archived** | Maintainer quit Lisp, sometimes works, but has existing bugs |
+| conjure | Active | Multi-lang, but eval-only capability for CL |
+| sextant.nvim | Inactive/Broken | LSP server incomplete, functionality cannot be verified |
+ 
+This project is a ground-up rewrite targeting full SLIME feature parity using modern Neovim APIs, 
+leveraging testing and GitHub CI. It is designed to be a drop-in replacement for vlime/nvlime.
 
 ## Goals
 
-- Pure Lua — no Vimscript, no Python, no Fennel
-- Neovim 0.10+ only
-- `vim.uv` async TCP transport — no blocking
-- `vim.ui.input` / `vim.ui.select` everywhere → snacks.nvim works automatically
-- `vim.diagnostic` for compiler notes
-- blink.cmp as a first-class completion source
-- Self-contained — no helper plugin dependency
-
-## Features
-
-- [x] REPL with floating output buffer
+### 1.0 Release Candidate
+- [x] Pure Lua; no Vimscript, Python or Fennel
+- [x] Neovim 0.10+ only
+- [x] `vim.uv` async TCP transport -> non-blocking
+- [x] `vim.ui.input` / `vim.ui.select` everywhere -> snacks.nvim and other plugin api hooks just work
+- [x] `vim.diagnostic` -> for compiler notes
+- [x] blink.cmp as a first-class completion source
+- [x] Self-contained; no helper plugin dependency
+- [x] REPL with optional pane/floating output buffer
 - [x] Eval: top-level form, region, interactive
 - [x] Completion via `swank:completions` / `swank:fuzzy-completions` — native blink.cmp and nvim-cmp sources with lazy `describe-symbol` documentation
 - [x] Arglist autodoc (`CursorHoldI` → echo area)
-- [x] SLDB debugger — floating window, restart/frame/eval-in-frame
-- [x] Object inspector — navigable parts, back/reinspect
-- [x] Cross-reference (xref) → picker or quickfix / direct jump for single result
-- [x] Compiler notes → `vim.diagnostic`
+- [x] SLDB debugger; floating window, restart/frame/eval-in-frame
+- [x] Object inspector; navigable parts, back/reinspect
+- [x] Cross-reference (xref) -> by hooked picker or quickfix list / direct jump for single result
 - [x] Trace dialog (SWANK-TRACE-DIALOG)
 - [x] which-key integration
-- [x] Autostart: spawn a CL implementation + Quicklisp when `require("swank").attach()` is called (typically from a `FileType` autocmd)
+- [x] Autostart: spawn a CL implementation + Quicklisp when `require("swank").attach()` is called
+- [ ] Compiler notes -> `vim.diagnostic`
+
+### Stretch goals
+
+- [] Optional first-class LSP support (NOTE: LSP would not be a replacement for SWANK, but could provide enhancements)
+- [] Integration with popularly used CL libraries (e.g. CIDER's nREPL middleware, SLIME contribs) for enhanced features
+- [] Integration with popular Neovim plugins (e.g. Telescope, Trouble, etc.) for enhanced UI/UX
+- [] Full support for more CL implementations where possible (e.g. CCL, ECL, ABCL, CLISP, Allegro CL)
+- [] Additional REPL features (e.g. input history, customizable prompt, etc.)
+- [] Better support for remote Swank servers (e.g. via SSH tunnels, Docker containers, etc.)
 
 ## Prerequisites
 
@@ -49,7 +58,7 @@ swank.nvim is a ground-up Lua rewrite targeting full SLIME feature parity, built
 
 **Neovim 0.10+** required. 0.13+ recommended (used for development and testing).
 
-### Quick start (autostart — recommended)
+### Quick start (autostart; recommended)
 
 The default configuration automatically launches your CL implementation and
 connects to Swank when you open a `.lisp` file. **You don't need to write any
@@ -92,12 +101,11 @@ That's it. Open a `.lisp` file in Neovim and swank.nvim handles the rest.
 
 | Implementation | Support | Notes |
 |----------------|---------|-------|
-| [SBCL](https://www.sbcl.org/) | ✅ Primary | Recommended. Best Swank support. |
-| [CCL (Clozure CL)](https://ccl.clozure.com/) | ✅ Should work | Swank is well-supported |
-| [ECL](https://ecl.common-lisp.dev/) | ⚠️ Partial | Swank works; some features limited |
-| [ABCL](https://abcl.org/) | ⚠️ Partial | Runs on JVM; Swank can be quirky |
-| [CLISP](https://clisp.sourceforge.io/) | ❌ Not recommended | Swank support is minimal |
-| Allegro CL | 🔲 Untested | Swank support exists in theory |
+| [SBCL](https://www.sbcl.org/) | ✅ Primary | Recommended. Best SWANK support. |
+| [CCL (Clozure CL)](https://ccl.clozure.com/) | ⚠️ Untested, should work | SWANK is well-supported |
+| [ECL](https://ecl.common-lisp.dev/) | ⚠️ Untested, Likely Partial Compatibility | SWANK works; some features limited |
+| [ABCL](https://abcl.org/) | ⚠️ Untested, Likely Partial Compatibility | Runs on JVM; SWANK can be quirky |
+| [CLISP](https://clisp.sourceforge.io/) | ❌ Untested, Not recommended | SWANK support is minimal |
 
 To use a different implementation, set `autostart.implementation` in your config:
 
@@ -107,14 +115,9 @@ require("swank").setup({
 })
 ```
 
-### ASDF
-
-ASDF is bundled with SBCL, CCL, and most modern implementations. No separate
-install needed. Required for the `swank-asdf` contrib (project-aware compilation).
-
 ### Advanced: connecting to an existing server
 
-If you want to manage the Swank server yourself (remote machines, custom setups,
+If you want to manage the SWANK server yourself (remote machines, custom setups,
 `autostart.enabled = false`), start it from your CL image:
 
 ```lisp
@@ -130,6 +133,14 @@ Then connect from Neovim with `<Leader>lc`.
 
 **lazy.nvim:**
 
+Minimal config:
+```lua
+{
+  "corigne/swank.nvim"
+},
+```
+
+Default config:
 ```lua
 {
   "corigne/swank.nvim",
@@ -175,73 +186,37 @@ vim.api.nvim_create_autocmd("FileType", {
 
 **Requires:** Neovim 0.10+. See [Prerequisites](#prerequisites) above.
 
+## Documentation
+### wiki
+See [the wiki here](/wiki) for detailed documentation, guides and troubleshooting.
+
+### vimdocs
+See `:help swank.nvim` after installation.
+
 ## Completions
 
 swank.nvim ships native sources for blink.cmp and nvim-cmp. Both support
 lazy documentation previews via `swank:describe-symbol` when you dwell on
 a completion item.
 
-See **[Completions wiki page](docs/wiki/Completions.md)** for full setup
+See **[Completions wiki page](wiki/Completions.md)** for full setup
 instructions, source module paths, and engine-specific options.
 
 ## Default keybindings
 
-All `<Leader>` bindings are buffer-local and prefixed with the configured `leader` (default `<Leader>`).
-
-| Key | Mode | Action |
-|-----|------|--------|
-| `<Leader>lc` | n | Connect to Swank server |
-| `<Leader>rr` | n | Start configured CL implementation and connect |
-| `<Leader>ld` | n | Disconnect |
-| `<Leader>lp` | n | Set current package |
-| `<Leader>ee` | n | Eval top-level form |
-| `<Leader>ee` | v | Eval region |
-| `<Leader>ei` | n | Eval (prompt) |
-| `<Leader>rw` | n | Toggle REPL window |
-| `<Leader>id` | n/v | Describe symbol (floating popup) |
-| `<Leader>ia` | n/v | Apropos (prompt / selection) |
-| `<Leader>iA` | n | Apropos symbol at cursor |
-| `<Leader>ii` | n | Inspect value at cursor |
-| `<Leader>xd` | n | Find definition |
-| `<Leader>xc` | n | Who calls symbol |
-| `<Leader>xr` | n | Who references symbol |
-| `<Leader>fl` | n | Load file |
-| `<Leader>fc` | n | Compile file |
-| `<Leader>fs` | n | Compile form at cursor |
-| `<Leader>tt` | n | Open trace dialog |
-| `<Leader>td` | n | Toggle trace on symbol |
-| `<Leader>tD` | n | Untrace all |
-| `<Leader>tc` / `<Leader>tg` | n | Clear / refresh trace entries |
-
-### LSP-compatible keymaps
-
-These standard Neovim keymaps are set as buffer-local overrides for Lisp buffers,
-so the familiar muscle memory works without a Language Server:
-
-| Key | Action |
-|-----|--------|
-| `gd` | Go to definition (Swank xref) |
-| `K` | Describe / hover (floating popup) |
-| `gr` | Find references → picker or quickfix |
-| `gR` | Find callers → picker or quickfix |
-| `<C-k>` | Arglist / signature help (normal + insert) |
-
-## Documentation
-
-See `:help swank.nvim` after installation.
+See [the wiki](wiki/Keybindings.md) for a full list of default keybindings and how to customize them.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for coverage requirements (80% floor, 100% goal) and test instructions.
+See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Acknowledgements
 
-- [SLIME](https://github.com/slime/slime) — the original Swank protocol and the Emacs CL environment this is modelled after
-- [Swank](https://github.com/slime/slime/blob/master/swank.lisp) — the server-side protocol implementation from the SLIME project, typically installed via SLIME/Quicklisp/ASDF or system packages
-- [vlime](https://github.com/vlime/vlime) and [nvlime](https://github.com/monkoose/nvlime) — prior Neovim/Vim Swank clients that proved the concept
-- [Conjure](https://github.com/Olical/conjure) — inspiration for a clean Neovim-native Lisp workflow
-- [plenary.nvim](https://github.com/nvim-lua/plenary.nvim) — test harness (busted runner) used throughout the test suite
-- [blink.cmp](https://github.com/Saghen/blink.cmp) — completion framework with a clean source API
+- [SLIME](https://github.com/slime/slime) 
+- [Swank](https://github.com/slime/slime/blob/master/swank.lisp)
+- [vlime](https://github.com/vlime/vlime) and [nvlime](https://github.com/monkoose/nvlime) reference implementations for Vim and Neovim, thank you for paving the way
+- [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
+- [blink.cmp](https://github.com/Saghen/blink.cmp)
 
 ## License
 
