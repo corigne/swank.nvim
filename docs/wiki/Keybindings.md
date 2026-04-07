@@ -3,6 +3,9 @@
 All keymaps use `<Leader>` as the prefix. Set `mapleader` in your Neovim config to choose your preferred key.
 See [Configuration](Configuration) for setup details.
 
+Note: If snacks is present and loaded, all available keybinds should be shown 
+and described by the snacks keybind function (`<Leader>sk` by default).
+
 ---
 
 ## Connection

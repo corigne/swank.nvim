@@ -11,6 +11,52 @@ automatically during `setup()`, enabling completions and validation in `.neoconf
 
 ---
 
+## Examples
+
+### lazy
+
+#### Minimal
+```lua
+{
+  "corigne/swank.nvim",
+},
+```
+
+#### Custom Opts
+```lua
+{
+  "corigne/swank.nvim",
+  ft   = { "lisp", "commonlisp" },
+  opts = {
+    leader    = "<Leader>",
+    autostart = { enabled = true, implementation = "sbcl" },
+    ui        = { repl = { position = "auto", size = 0.45 } },
+  },
+}
+```
+
+### Manual Setup
+
+#### Manual connect, specific port
+
+```lua
+require("swank").setup({
+  autostart = { enabled = false },
+  server    = { host = "127.0.0.1", port = 14005 },
+})
+```
+
+#### CCL with bottom REPL
+
+```lua
+require("swank").setup({
+  autostart = { enabled = true, implementation = "ccl" },
+  ui        = { repl = { position = "bottom", size = 0.35 } },
+})
+```
+
+---
+
 ## Full schema with defaults
 
 ```lua
@@ -152,45 +198,3 @@ functionality that depends on it:
 | `:swank-trace-dialog` | Trace dialog |
 | `:swank-c-p-c` | Compound prefix completion |
 | `:swank-package-fu` | Package management helpers |
-
----
-
-## Examples
-
-### Minimal (all defaults)
-
-```lua
-require("swank").setup({})
-```
-
-### Manual connect, specific port
-
-```lua
-require("swank").setup({
-  autostart = { enabled = false },
-  server    = { host = "127.0.0.1", port = 14005 },
-})
-```
-
-### CCL with bottom REPL
-
-```lua
-require("swank").setup({
-  autostart = { enabled = true, implementation = "ccl" },
-  ui        = { repl = { position = "bottom", size = 0.35 } },
-})
-```
-
-### lazy.nvim
-
-```lua
-{
-  "corigne/swank.nvim",
-  ft   = { "lisp", "commonlisp" },
-  opts = {
-    leader    = "<Leader>",
-    autostart = { enabled = true, implementation = "sbcl" },
-    ui        = { repl = { position = "auto", size = 0.45 } },
-  },
-}
-```
