@@ -157,8 +157,24 @@ All buffer-local. This is the only layer that:
 - Calls `vim.ui.input`
 - Calls `vim.ui.select`
 
-LSP-compatible overrides registered here (`gd`, `K`, `gr`, `gR`, `<C-k>`)
-so standard navigation muscle memory works in Lisp buffers.
+### LSP-first routing
+
+Five keymaps check for an attached LSP client at invocation time via
+`vim.lsp.get_clients({ bufnr = bufnr })`. If one is present the standard
+`vim.lsp.buf.*` handler is called; otherwise the equivalent Swank RPC fires.
+This means nvim-lspconfig (e.g. Sextant) is respected automatically with no
+extra configuration.
+
+| Keymap | LSP path | Swank fallback |
+|--------|----------|----------------|
+| `gd` | `vim.lsp.buf.definition()` | `client.find_definition(sym)` |
+| `K` | `vim.lsp.buf.hover()` | `client.describe(sym)` |
+| `gr` | `vim.lsp.buf.references()` | `client.xref_references(sym)` |
+| `<C-k>` | `vim.lsp.buf.signature_help()` | `client.autodoc()` |
+| `gR` | *(no LSP equivalent)* | `client.xref_calls(sym)` |
+
+All other Swank keymaps (`<Leader>ee`, `<Leader>id`, REPL, compile, trace, …)
+are unconditional — they have no LSP equivalents.
 
 ---
 

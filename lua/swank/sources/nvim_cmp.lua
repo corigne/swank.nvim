@@ -24,7 +24,10 @@ end
 
 function Source:is_available()
   local ok, client = pcall(require, "swank.client")
-  return ok and client.is_connected()
+  if not (ok and client.is_connected()) then return false end
+  -- Yield to the LSP when one is attached; it provides completions natively.
+  local bufnr = vim.api.nvim_get_current_buf()
+  return #vim.lsp.get_clients({ bufnr = bufnr }) == 0
 end
 
 function Source:get_keyword_pattern()
@@ -102,3 +105,5 @@ function Source:resolve(completion_item, callback)
 end
 
 cmp.register_source("swank", Source.new())
+
+return Source

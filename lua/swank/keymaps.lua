@@ -122,42 +122,68 @@ function M.attach(bufnr, config)
   map("n", "tg", function() client.refresh_traces() end, "Refresh trace entries")
 
   -- ── LSP-compatible keymaps ────────────────────────────────────────────────
-  -- These override the standard LSP bindings for Lisp buffers so that the
-  -- familiar muscle memory works even without a Language Server running.
+  -- When an LSP client is attached to the buffer at invocation time, delegate
+  -- to vim.lsp.buf.* so nvim-lspconfig keymaps are respected.  When no LSP is
+  -- present (e.g. before Sextant starts, or on machines without it), fall back
+  -- to the equivalent Swank RPC so the same muscle memory still works.
   local lsp_opts = { buffer = bufnr, silent = true }
   local function lsp(mode, lhs, rhs, desc)
     vim.keymap.set(mode, lhs, rhs, vim.tbl_extend("force", lsp_opts, { desc = desc }))
   end
 
-  -- gd / gD  — go to definition / find all definitions
+  -- Returns true when at least one LSP client is attached to the buffer.
+  -- Checked at invocation time so hot-attach / late-start servers work.
+  local function has_lsp()
+    return #vim.lsp.get_clients({ bufnr = bufnr }) > 0
+  end
+
+  -- gd — go to definition
   lsp("n", "gd", function()
-    local sym = cword()
-    if sym then client.find_definition(sym) end
-  end, "Go to definition (Swank)")
+    if has_lsp() then
+      vim.lsp.buf.definition()
+    else
+      local sym = cword()
+      if sym then client.find_definition(sym) end
+    end
+  end, "Go to definition (LSP → Swank)")
 
-  -- K  — hover / describe (mirrors vim.lsp.buf.hover)
+  -- K — hover / describe
   lsp("n", "K", function()
-    local sym = cword()
-    if sym then client.describe(sym) end
-  end, "Describe symbol (Swank)")
+    if has_lsp() then
+      vim.lsp.buf.hover()
+    else
+      local sym = cword()
+      if sym then client.describe(sym) end
+    end
+  end, "Hover / describe symbol (LSP → Swank)")
 
-  -- gr  — references  (mirrors vim.lsp.buf.references)
+  -- gr — references
   lsp("n", "gr", function()
-    local sym = cword()
-    if sym then client.xref_references(sym) end
-  end, "Find references (Swank)")
+    if has_lsp() then
+      vim.lsp.buf.references()
+    else
+      local sym = cword()
+      if sym then client.xref_references(sym) end
+    end
+  end, "Find references (LSP → Swank)")
 
-  -- gR  — callers (swank-specific; analogous to call hierarchy)
+  -- gR — callers (call hierarchy; no standard LSP equivalent, always Swank)
   lsp("n", "gR", function()
     local sym = cword()
     if sym then client.xref_calls(sym) end
   end, "Find callers (Swank)")
 
-  -- <C-k>  — signature help (mirrors vim.lsp.buf.signature_help), normal mode only.
+  -- <C-k> — signature help, normal mode only.
   -- Insert-mode <C-k> is intentionally omitted: blink.cmp's super-tab preset
   -- uses <C-k> for show_signature and falls through to buffer-local keymaps,
   -- which would fire autodoc unintentionally on every <C-k> press.
-  lsp("n", "<C-k>", function() client.autodoc() end, "Arglist / signature help (Swank)")
+  lsp("n", "<C-k>", function()
+    if has_lsp() then
+      vim.lsp.buf.signature_help()
+    else
+      client.autodoc()
+    end
+  end, "Signature help (LSP → Swank)")
 
   -- ── which-key groups ─────────────────────────────────────────────────────
   local ok, wk = pcall(require, "which-key")
@@ -173,6 +199,14 @@ function M.attach(bufnr, config)
       { leader .. "t", buffer = bufnr, group = "trace" },
     })
   end
+end
+
+--- Returns true when at least one LSP client is attached to the given buffer.
+--- Exposed for testing; prefer using the closure inside attach() in production.
+---@param bufnr integer
+---@return boolean
+function M._has_lsp(bufnr)
+  return #vim.lsp.get_clients({ bufnr = bufnr }) > 0
 end
 
 return M

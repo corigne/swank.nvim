@@ -13,6 +13,14 @@ function source:get_trigger_characters()
   return { ":" }
 end
 
+function source:enabled()
+  local ok, client = pcall(require, "swank.client")
+  if not (ok and client.is_connected()) then return false end
+  -- Yield to the LSP when one is attached; it provides completions natively.
+  local bufnr = vim.api.nvim_get_current_buf()
+  return #vim.lsp.get_clients({ bufnr = bufnr }) == 0
+end
+
 function source:get_completions(ctx, callback)
   local client = require("swank.client")
   if not client.is_connected() then

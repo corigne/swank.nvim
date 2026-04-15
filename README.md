@@ -23,7 +23,7 @@ focusing on maintainability, testability, and modern Neovim conventions.
 | vlime | Active | clunky/limited by the nature of Vim and Vimscript |
 | nvlime | **Archived** | Maintainer quit Lisp, sometimes works, but has existing bugs |
 | conjure | Active | Multi-lang, but eval-only capability for CL |
-| sextant.nvim | Inactive/Broken | LSP server incomplete, functionality cannot be verified |
+| sextant.nvim | Active | CL LSP server; swank.nvim works alongside it as a first-class companion |
  
 This project is a ground-up rewrite targeting full SLIME feature parity using modern Neovim APIs, 
 leveraging testing and GitHub CI. It is designed to be a drop-in replacement for vlime/nvlime.
@@ -41,7 +41,7 @@ leveraging testing and GitHub CI. It is designed to be a drop-in replacement for
 - [x] Self-contained; no helper plugin dependency
 - [x] REPL with optional pane/floating output buffer
 - [x] Eval: top-level form, region, interactive
-- [x] Completion via `swank:completions` / `swank:fuzzy-completions` — native blink.cmp and nvim-cmp sources with lazy `describe-symbol` documentation
+- [x] Completion via `swank:completions` / `swank:fuzzy-completions` — native blink.cmp and nvim-cmp sources with lazy `describe-symbol` documentation (automatically yield to LSP completions when an LSP is attached)
 - [x] Arglist autodoc (`CursorHoldI` → echo area)
 - [x] SLDB debugger; floating window, restart/frame/eval-in-frame
 - [x] Object inspector; navigable parts, back/reinspect
@@ -53,6 +53,7 @@ leveraging testing and GitHub CI. It is designed to be a drop-in replacement for
 
 ### Stretch goals
 
+- [x] LSP-first navigation — `gd`, `K`, `gr`, `<C-k>` delegate to any attached LSP (e.g. Sextant); Swank fills the gap when no LSP is present
 - [ ] Optional first-class LSP support (NOTE: LSP would not be a replacement for SWANK, but could provide enhancements)
 - [ ] Integration with popularly used CL libraries (e.g. CIDER's nREPL middleware, SLIME contribs) for enhanced features
 - [ ] Integration with popular Neovim plugins (e.g. Telescope, Trouble, etc.) for enhanced UI/UX
