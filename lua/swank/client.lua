@@ -586,6 +586,76 @@ function M.compile_form()
   end)
 end
 
+-- ---------------------------------------------------------------------------
+-- Macro expansion
+-- ---------------------------------------------------------------------------
+
+--- Display a macro expansion in a scratch buffer
+---@param expanded string  the expanded form text
+---@param title string     window title
+local function show_expansion(expanded, title)
+  local lines = vim.split(expanded:gsub("\r", ""), "\n", { plain = true })
+  while #lines > 0 and lines[#lines] == "" do table.remove(lines) end
+  if #lines == 0 then
+    vim.notify("swank.nvim: empty expansion", vim.log.levels.INFO)
+    return
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[buf].filetype   = "lisp"
+  vim.bo[buf].buftype    = "nofile"
+  vim.bo[buf].modifiable = false
+  vim.api.nvim_buf_set_name(buf, "swank://macroexpand")
+  vim.bo[buf].modifiable = true
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modifiable = false
+
+  local width  = math.min(math.max(80, vim.o.columns - 20), vim.o.columns)
+  local height = math.min(#lines + 2, math.floor(vim.o.lines * 0.6))
+  local row    = math.floor((vim.o.lines - height) / 2)
+  local col    = math.floor((vim.o.columns - width) / 2)
+
+  local c    = require("swank").config
+  local fcfg = (c and c.ui and c.ui.floating) or {}
+  local win  = vim.api.nvim_open_win(buf, true, {
+    relative  = "editor",
+    width     = width,
+    height    = height,
+    row       = row,
+    col       = col,
+    style     = "minimal",
+    border    = fcfg.border or "rounded",
+    title     = " " .. title .. " ",
+    title_pos = "center",
+  })
+  if vim.api.nvim_win_is_valid(win) then
+    vim.wo[win].wrap = true
+  end
+  vim.keymap.set("n", "q", function()
+    if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+  end, { buffer = buf, silent = true, desc = "Close macro expansion" })
+end
+
+--- Expand the macro form at cursor once (macroexpand-1)
+function M.macroexpand_1()
+  local form = M._form_at_cursor()
+  if not form or form == "" then return end
+  M.rex({ "swank:macroexpand-1", form }, function(result)
+    if type(result) ~= "table" or result[1] ~= ":ok" then return end
+    show_expansion(tostring(result[2] or ""), "macroexpand-1")
+  end)
+end
+
+--- Fully expand the macro form at cursor (macroexpand-all)
+function M.macroexpand()
+  local form = M._form_at_cursor()
+  if not form or form == "" then return end
+  M.rex({ "swank:macroexpand-all", form }, function(result)
+    if type(result) ~= "table" or result[1] ~= ":ok" then return end
+    show_expansion(tostring(result[2] or ""), "macroexpand-all")
+  end)
+end
+
 --- Switch package interactively
 function M.set_package_interactive()
   vim.ui.input({ prompt = "Package: ", default = current_package }, function(pkg)

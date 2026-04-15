@@ -41,6 +41,8 @@ function M.attach(bufnr, config)
   map("n", "ee", function() client.eval_toplevel() end,      "Eval top-level form")
   map("n", "ei", function() client.eval_interactive() end,   "Eval (prompt)")
   map("v", "ee", function() client.eval_region() end,        "Eval region")
+  map("n", "em", function() client.macroexpand_1() end,      "Macroexpand-1 form at cursor")
+  map("n", "eM", function() client.macroexpand() end,        "Macroexpand-all form at cursor")
 
   -- ── REPL ─────────────────────────────────────────────────────────────────
   map("n", "rw", function() require("swank.ui.repl").toggle() end, "Toggle REPL window")
@@ -190,7 +192,7 @@ function M.attach(bufnr, config)
   if ok then
     wk.add({
       { leader,        buffer = bufnr, group = "swank" },
-      { leader .. "e", buffer = bufnr, group = "eval" },
+      { leader .. "e", buffer = bufnr, group = "eval/expand" },
       { leader .. "r", buffer = bufnr, group = "repl/server" },
       { leader .. "i", buffer = bufnr, group = "inspect" },
       { leader .. "x", buffer = bufnr, group = "xref" },
