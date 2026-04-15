@@ -656,6 +656,21 @@ function M.macroexpand()
   end)
 end
 
+--- Disassemble a symbol or form and display in a floating scratch buffer
+---@param sym? string  defaults to word under cursor
+function M.disassemble(sym)
+  local target = sym or vim.fn.expand("<cword>")
+  if not target or target == "" then return end
+  M.rex({ "swank:disassemble-form", target }, function(result)
+    if type(result) ~= "table" or result[1] ~= ":ok" then
+      vim.notify("swank.nvim: disassemble failed", vim.log.levels.WARN)
+      return
+    end
+    local asm = tostring(result[2] or "")
+    show_expansion(asm, "disassemble: " .. target)
+  end)
+end
+
 --- Switch package interactively
 function M.set_package_interactive()
   vim.ui.input({ prompt = "Package: ", default = current_package }, function(pkg)

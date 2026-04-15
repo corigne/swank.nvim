@@ -122,6 +122,7 @@ function M.attach(bufnr, config)
   map("n", "fl", function() client.load_file() end,     "Load file")
   map("n", "fc", function() client.compile_file() end,  "Compile file")
   map("n", "fs", function() client.compile_form() end,  "Compile form at cursor")
+  map("n", "fd", function() client.disassemble() end,   "Disassemble symbol at cursor")
 
   -- ── Trace ─────────────────────────────────────────────────────────────────
   map("n", "tt", function()

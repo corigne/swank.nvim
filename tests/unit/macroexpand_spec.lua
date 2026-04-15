@@ -114,3 +114,64 @@ describe("client macroexpand", function()
     client.rex = orig_rex
   end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- disassemble()
+-- ---------------------------------------------------------------------------
+
+describe("M.disassemble", function()
+  local client = require("swank.client")
+
+  local function make_mock_transport()
+    local sent = {}
+    local t = {
+      send       = function(self, p) table.insert(sent, p) end,
+      disconnect = function(self) end,
+    }
+    return t, sent
+  end
+
+  before_each(function()
+    local mock, _ = make_mock_transport()
+    client._test_inject(mock)
+  end)
+
+  after_each(function()
+    client._test_reset()
+  end)
+
+  it("sends swank:disassemble-form with the provided symbol", function()
+    local received_form
+    local orig_rex = client.rex
+    client.rex = function(form, _cb) received_form = form end
+    client.disassemble("MY-FUNC")
+    assert.equals("swank:disassemble-form", received_form[1])
+    assert.equals("MY-FUNC", received_form[2])
+    client.rex = orig_rex
+  end)
+
+  it("falls back to cword when no sym provided", function()
+    local received_form
+    local orig_rex = client.rex
+    local orig_expand = vim.fn.expand
+    vim.fn.expand = function(_) return "CWORD-SYM" end
+    client.rex = function(form, _cb) received_form = form end
+    client.disassemble()
+    assert.equals("swank:disassemble-form", received_form[1])
+    assert.equals("CWORD-SYM", received_form[2])
+    client.rex = orig_rex
+    vim.fn.expand = orig_expand
+  end)
+
+  it("notifies on non-:ok result", function()
+    local notified = false
+    local orig_notify = vim.notify
+    vim.notify = function(_, _l) notified = true end
+    local orig_rex = client.rex
+    client.rex = function(_form, cb) cb({ ":error", "nope" }) end
+    client.disassemble("X")
+    assert.is_true(notified)
+    client.rex = orig_rex
+    vim.notify = orig_notify
+  end)
+end)

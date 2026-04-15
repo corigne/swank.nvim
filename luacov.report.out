@@ -766,6 +766,21 @@
         end)
       end
 
+      --- Disassemble a symbol or form and display in a floating scratch buffer
+      ---@param sym? string  defaults to word under cursor
+   20 function M.disassemble(sym)
+    3   local target = sym or vim.fn.expand("<cword>")
+    3   if not target or target == "" then return end
+    6   M.rex({ "swank:disassemble-form", target }, function(result)
+    1     if type(result) ~= "table" or result[1] ~= ":ok" then
+    1       vim.notify("swank.nvim: disassemble failed", vim.log.levels.WARN)
+    1       return
+          end
+****0     local asm = tostring(result[2] or "")
+****0     show_expansion(asm, "disassemble: " .. target)
+        end)
+      end
+
       --- Switch package interactively
    20 function M.set_package_interactive()
     4   vim.ui.input({ prompt = "Package: ", default = current_package }, function(pkg)
@@ -1020,18 +1035,18 @@
 
       -- Test-only injection hooks (do not call from production code)
    20 function M._test_inject(fake_transport)
-   99   transport        = fake_transport
-   99   connection_state = "connected"
+  102   transport        = fake_transport
+  102   connection_state = "connected"
       end
 
    20 function M._test_reset()
-  188   transport        = nil
-  188   connection_state = "disconnected"
-  188   current_package  = "COMMON-LISP-USER"
-  188   callbacks        = {}
-  188   msg_id           = 0
-  188   stderr_log       = {}
-  188   impl_job_id      = nil
+  191   transport        = nil
+  191   connection_state = "disconnected"
+  191   current_package  = "COMMON-LISP-USER"
+  191   callbacks        = {}
+  191   msg_id           = 0
+  191   stderr_log       = {}
+  191   impl_job_id      = nil
       end
 
    20 return M
@@ -1598,11 +1613,11 @@ Summary
 File                                                               Hits Missed Coverage
 ---------------------------------------------------------------------------------------
 /home/nexus/dev/personal/swank.nvim/lua/swank/blink_source.lua     53   4      92.98%
-/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua           436  65     87.03%
+/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua           443  67     86.86%
 /home/nexus/dev/personal/swank.nvim/lua/swank/init.lua             27   5      84.38%
 /home/nexus/dev/personal/swank.nvim/lua/swank/protocol.lua         75   3      96.15%
 /home/nexus/dev/personal/swank.nvim/lua/swank/sources/blink.lua    44   3      93.62%
 /home/nexus/dev/personal/swank.nvim/lua/swank/sources/nvim_cmp.lua 56   5      91.80%
 /home/nexus/dev/personal/swank.nvim/lua/swank/transport.lua        51   0      100.00%
 ---------------------------------------------------------------------------------------
-Total                                                              742  85     89.72%
+Total                                                              749  87     89.59%
