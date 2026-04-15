@@ -159,19 +159,21 @@ All buffer-local. This is the only layer that:
 
 ### LSP-first routing
 
-Five keymaps check for an attached LSP client at invocation time via
-`vim.lsp.get_clients({ bufnr = bufnr })`. If one is present the standard
-`vim.lsp.buf.*` handler is called; otherwise the equivalent Swank RPC fires.
-This means nvim-lspconfig (e.g. Sextant) is respected automatically with no
-extra configuration.
+`gd`, `K`, `gr`, `<C-k>` are registered as Swank fallbacks only when no LSP
+client is attached at the time the buffer opens. If an LSP attaches later its
+keymaps naturally overwrite these (last writer wins for buffer-local keymaps).
+`LspDetach` is listened to on the buffer; when the last client leaves the
+Swank fallbacks are re-registered.
 
-| Keymap | LSP path | Swank fallback |
-|--------|----------|----------------|
-| `gd` | `vim.lsp.buf.definition()` | `client.find_definition(sym)` |
-| `K` | `vim.lsp.buf.hover()` | `client.describe(sym)` |
-| `gr` | `vim.lsp.buf.references()` | `client.xref_references(sym)` |
-| `<C-k>` | `vim.lsp.buf.signature_help()` | `client.autodoc()` |
-| `gR` | *(no LSP equivalent)* | `client.xref_calls(sym)` |
+`gR` (find callers) has no LSP equivalent and is always registered pointing to Swank.
+
+| Keymap | When LSP attached | When no LSP |
+|--------|-------------------|-------------|
+| `gd` | LSP owns it | `client.find_definition(sym)` |
+| `K` | LSP owns it | `client.describe(sym)` |
+| `gr` | LSP owns it | `client.xref_references(sym)` |
+| `<C-k>` | LSP owns it | `client.autodoc()` |
+| `gR` | *(always Swank)* | `client.xref_calls(sym)` |
 
 All other Swank keymaps (`<Leader>ee`, `<Leader>id`, REPL, compile, trace, …)
 are unconditional — they have no LSP equivalents.
