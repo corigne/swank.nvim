@@ -1,14 +1,15 @@
 # Keybindings
 
-All keymaps use `<Leader>` as the prefix. Set `mapleader` in your Neovim config to choose your preferred key.
-See [Configuration](Configuration) for setup details.
-
-Note: If snacks is present and loaded, all available keybinds should be shown 
-and described by the snacks keybind function (`<Leader>sk` by default).
+All keymaps use `<Leader>` as the prefix by default (configurable via `config.leader`).
+All bindings are **buffer-local** to Lisp buffers so they never shadow global mappings
+in other filetypes. Because most users set `mapleader` and `maplocalleader` to the same
+key, two bindings use capital letters to avoid known conflicts with Snacks/LazyVim:
+`<Leader>fC` (compile file) and `<Leader>fD` (disassemble) avoid `<Leader>fc` (Find
+Config File) and `<Leader>fd` (common LSP definition binding).
 
 ---
 
-## Connection
+## Connection / Server
 
 | Mode | Keymap | Action |
 |------|--------|--------|
@@ -26,6 +27,8 @@ and described by the snacks keybind function (`<Leader>sk` by default).
 | n | `<Leader>ee` | Eval top-level form (outermost `(...)` around cursor) |
 | v | `<Leader>ee` | Eval visual selection |
 | n | `<Leader>ei` | Eval expression interactively (prompts for input) |
+| n | `<Leader>em` | Macroexpand-1 form at cursor |
+| n | `<Leader>eM` | Macroexpand-all form at cursor |
 
 ---
 
@@ -34,6 +37,8 @@ and described by the snacks keybind function (`<Leader>sk` by default).
 | Mode | Keymap | Action |
 |------|--------|--------|
 | n | `<Leader>rw` | Toggle REPL window |
+| n | `<Leader>e<Up>` | Re-open eval prompt pre-filled with older history entry |
+| n | `<Leader>e<Down>` | Re-open eval prompt pre-filled with newer history entry |
 
 ---
 
@@ -56,6 +61,10 @@ and described by the snacks keybind function (`<Leader>sk` by default).
 |------|--------|--------|
 | n | `<Leader>xc` | Who calls symbol under cursor |
 | n | `<Leader>xr` | Who references symbol under cursor |
+| n | `<Leader>xb` | Who binds symbol under cursor |
+| n | `<Leader>xs` | Who sets symbol under cursor |
+| n | `<Leader>xm` | Who macroexpands symbol under cursor |
+| n | `<Leader>xS` | Who specializes on symbol under cursor |
 | n | `<Leader>xd` | Find definition of symbol under cursor |
 
 ---
@@ -65,8 +74,9 @@ and described by the snacks keybind function (`<Leader>sk` by default).
 | Mode | Keymap | Action |
 |------|--------|--------|
 | n | `<Leader>fl` | Load file into Lisp image |
-| n | `<Leader>fc` | Compile file |
+| n | `<Leader>fC` | Compile file |
 | n | `<Leader>fs` | Compile form at cursor |
+| n | `<Leader>fD` | Disassemble symbol at cursor |
 
 ---
 
@@ -75,24 +85,45 @@ and described by the snacks keybind function (`<Leader>sk` by default).
 | Mode | Keymap | Action |
 |------|--------|--------|
 | n | `<Leader>tt` | Open trace dialog |
-| n | `<Leader>td` | Toggle trace on symbol under cursor (prompts if none) |
+| n | `<Leader>td` | Toggle trace on symbol under cursor (prompts if no symbol) |
 | n | `<Leader>tD` | Untrace all |
 | n | `<Leader>tc` | Clear trace entries |
 | n | `<Leader>tg` | Refresh trace entries |
 
 ---
 
-## LSP-compatible overrides
+## Profiling
 
-Buffer-local overrides so standard editor muscle-memory works in Lisp buffers:
+| Mode | Keymap | Action |
+|------|--------|--------|
+| n | `<Leader>pp` | Profile symbol at cursor |
+| n | `<Leader>pP` | Unprofile all functions |
+| n | `<Leader>pr` | Show profiling report |
+| n | `<Leader>p0` | Reset profiling counters |
 
-| Mode | Keymap | Action | Standard LSP equivalent |
-|------|--------|--------|------------------------|
-| n | `gd` | Find definition | `vim.lsp.buf.definition` |
-| n | `K` | Describe symbol | `vim.lsp.buf.hover` |
-| n | `gr` | Who references | `vim.lsp.buf.references` |
-| n | `gR` | Who calls | *(no standard equivalent)* |
-| n/i | `<C-k>` | Autodoc (arglist) | `vim.lsp.buf.signature_help` |
+---
+
+## Threads
+
+| Mode | Keymap | Action |
+|------|--------|--------|
+| n | `<Leader>Tl` | List threads; select a thread to kill it |
+
+---
+
+## LSP-compatible fallbacks
+
+These bindings are registered as Swank fallbacks only when no LSP client is attached
+to the buffer. If an LSP client attaches later its own keymaps take precedence. When
+the last LSP client detaches the Swank fallbacks are automatically restored.
+
+| Mode | Keymap | Action | LSP equivalent |
+|------|--------|--------|----------------|
+| n | `gd` | Find definition (Swank fallback) | `vim.lsp.buf.definition` |
+| n | `K` | Describe symbol (Swank fallback) | `vim.lsp.buf.hover` |
+| n | `gr` | Who references (Swank fallback) | `vim.lsp.buf.references` |
+| n | `gR` | Who calls (Swank fallback) | *(no standard LSP equivalent)* |
+| n | `<C-k>` | Autodoc / signature help (Swank fallback) | `vim.lsp.buf.signature_help` |
 
 ---
 
@@ -124,10 +155,12 @@ If which-key is installed, swank.nvim registers group labels automatically:
 | Prefix | Label |
 |--------|-------|
 | `<Leader>` | swank |
-| `<Leader>l` | connection |
-| `<Leader>e` | eval |
+| `<Leader>e` | eval/expand |
 | `<Leader>r` | repl/server |
 | `<Leader>i` | inspect |
 | `<Leader>x` | xref |
 | `<Leader>f` | file/compile |
+| `<Leader>l` | connection |
 | `<Leader>t` | trace |
+| `<Leader>p` | profiling |
+| `<Leader>T` | threads |

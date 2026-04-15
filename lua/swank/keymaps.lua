@@ -153,9 +153,9 @@ function M.attach(bufnr, config)
 
   -- ── Compilation ──────────────────────────────────────────────────────────
   map("n", "fl", function() client.load_file() end,     "Load file")
-  map("n", "fc", function() client.compile_file() end,  "Compile file")
+  map("n", "fC", function() client.compile_file() end,  "Compile file")
   map("n", "fs", function() client.compile_form() end,  "Compile form at cursor")
-  map("n", "fd", function() client.disassemble() end,   "Disassemble symbol at cursor")
+  map("n", "fD", function() client.disassemble() end,   "Disassemble symbol at cursor")
 
   -- ── Trace ─────────────────────────────────────────────────────────────────
   map("n", "tt", function()
