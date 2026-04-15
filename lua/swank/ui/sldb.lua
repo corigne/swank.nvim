@@ -160,7 +160,7 @@ local function build_content()
 
   -- Statusline: pinned keymap hint. %< marks the truncation point so the
   -- critical keys on the left are preserved on narrow windows.
-  local statusline = "  [0-9]restart  abort [a]bort  [c]ont  quit [q]uit%<  [e]val  [v]src  [l]ocals"
+  local statusline = "  [0-9]restart  [a]bort  [c]ont  [s]tep  [n]ext  quit [q]%<  [e]val  [v]src  [l]ocals"
 
   return lines, { restart_lines = restart_lines, frame_lines = frame_lines }, winbar, statusline
 end
@@ -170,6 +170,7 @@ end
 -- ---------------------------------------------------------------------------
 
 local function frame_at_cursor()
+  if not state.winnr or not vim.api.nvim_win_is_valid(state.winnr) then return 0 end
   local row = vim.api.nvim_win_get_cursor(state.winnr)[1]
   -- Walk up from cursor to find the nearest frame line ("  N: desc")
   while row >= 1 do
@@ -207,6 +208,8 @@ local function setup_keymaps()
 
   map("a", function() M.abort() end,    "Abort (throw to toplevel)")
   map("c", function() M.continue() end, "Continue")
+  map("s", function() M.step() end,     "Step into")
+  map("n", function() M.step_next() end, "Step over (next)")
   map("q", function() M.abort() end,    "Quit / abort")
 
   map("e", function()
@@ -390,6 +393,16 @@ end
 --- Continue from the current restart point
 function M.continue()
   client().rex({ "swank:sldb-continue" }, function(_) end, nil, state.thread)
+end
+
+--- Step into the next expression
+function M.step()
+  client().rex({ "swank:sldb-step", frame_at_cursor() }, function(_) end, nil, state.thread)
+end
+
+--- Step over to the next expression at the same level
+function M.step_next()
+  client().rex({ "swank:sldb-next", frame_at_cursor() }, function(_) end, nil, state.thread)
 end
 
 -- Exported for testing: expose state and build_content so sldb_spec can

@@ -103,3 +103,76 @@ describe("sldb._build_content", function()
     assert.is_true(ok)
   end)
 end)
+
+-- ── step / step_next public API ────────────────────────────────────────────
+
+describe("sldb step controls", function()
+  local client   = require("swank.client")
+  local protocol = require("swank.protocol")
+
+  local function make_mock()
+    local sent = {}
+    local t = {
+      send       = function(_, p) table.insert(sent, p) end,
+      disconnect = function(self) self._closed = true end,
+      _closed    = false,
+    }
+    return t, sent
+  end
+
+  before_each(function()
+    local mock, _ = make_mock()
+    client._test_inject(mock)
+    -- Set up minimal SLDB state so frame_at_cursor fallback returns 0
+    sldb._state.thread = "T1"
+    sldb._state.level  = 1
+  end)
+
+  after_each(function()
+    client._test_reset()
+  end)
+
+  it("step() sends swank:sldb-step", function()
+    local sent_form
+    local orig = client.rex
+    client.rex = function(form, _cb, _pkg, _thread) sent_form = form end
+    sldb.step()
+    assert.equals("swank:sldb-step", sent_form[1])
+    client.rex = orig
+  end)
+
+  it("step_next() sends swank:sldb-next", function()
+    local sent_form
+    local orig = client.rex
+    client.rex = function(form, _cb, _pkg, _thread) sent_form = form end
+    sldb.step_next()
+    assert.equals("swank:sldb-next", sent_form[1])
+    client.rex = orig
+  end)
+
+  it("step() passes the thread from SLDB state", function()
+    local sent_thread
+    local orig = client.rex
+    client.rex = function(_form, _cb, _pkg, thread) sent_thread = thread end
+    sldb.step()
+    assert.equals("T1", sent_thread)
+    client.rex = orig
+  end)
+
+  it("step_next() passes the thread from SLDB state", function()
+    local sent_thread
+    local orig = client.rex
+    client.rex = function(_form, _cb, _pkg, thread) sent_thread = thread end
+    sldb.step_next()
+    assert.equals("T1", sent_thread)
+    client.rex = orig
+  end)
+
+  it("statusline hint includes step and next keys", function()
+    local _, _, _, statusline = sldb._build_content()
+    assert.is_true(statusline:find("%[s%]") ~= nil or statusline:find("step") ~= nil,
+      "expected [s]/step in statusline")
+    assert.is_true(statusline:find("%[n%]") ~= nil or statusline:find("next") ~= nil,
+      "expected [n]/next in statusline")
+  end)
+end)
