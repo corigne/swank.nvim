@@ -787,6 +787,63 @@ function M.autodoc(force)
   )
 end
 
+-- ---------------------------------------------------------------------------
+-- Thread management
+-- ---------------------------------------------------------------------------
+
+--- List all threads in a vim.ui.select picker; choose one to kill.
+function M.list_threads()
+  M.rex({ "swank:list-threads" }, function(result)
+    if type(result) ~= "table" or result[1] ~= ":ok" then
+      vim.notify("swank.nvim: list-threads failed", vim.log.levels.WARN)
+      return
+    end
+    local data = result[2]  -- { labels_row, thread_row, thread_row, ... }
+    if type(data) ~= "table" or #data < 2 then
+      vim.notify("swank.nvim: no threads to show", vim.log.levels.INFO)
+      return
+    end
+    -- Build display entries: each thread row is a table of fields
+    -- Row 0 is the label header, rows 1..N are thread entries.
+    local entries = {}
+    for i = 2, #data do
+      local row = data[i]
+      if type(row) == "table" then
+        -- First field is thread id/index, second is name, rest are extras
+        local idx  = tostring(row[1] or i - 1)
+        local name = tostring(row[2] or "?")
+        table.insert(entries, { idx = idx, name = name, label = idx .. "  " .. name })
+      end
+    end
+    if #entries == 0 then
+      vim.notify("swank.nvim: no threads", vim.log.levels.INFO)
+      return
+    end
+    vim.schedule(function()
+      vim.ui.select(entries, {
+        prompt = "Kill thread:",
+        format_item = function(e) return e.label end,
+      }, function(choice)
+        if not choice then return end
+        M.kill_thread(tonumber(choice.idx))
+      end)
+    end)
+  end)
+end
+
+--- Kill the nth thread by index.
+---@param n integer
+function M.kill_thread(n)
+  if not n then return end
+  M.rex({ "swank:kill-nth-thread", n }, function(result)
+    if type(result) == "table" and result[1] == ":ok" then
+      vim.notify("swank.nvim: killed thread " .. tostring(n), vim.log.levels.INFO)
+    else
+      vim.notify("swank.nvim: kill-thread failed", vim.log.levels.WARN)
+    end
+  end)
+end
+
 -- XRef
 ---@param sym string
 function M.xref_calls(sym)

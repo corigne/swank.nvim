@@ -183,6 +183,9 @@ function M.attach(bufnr, config)
   map("n", "pr", function() client.profile_report() end,  "Show profiling report")
   map("n", "p0", function() client.profile_reset() end,   "Reset profiling counters")
 
+  -- ── Threads ───────────────────────────────────────────────────────────────
+  map("n", "Tl", function() client.list_threads() end,    "List threads (pick to kill)")
+
   -- ── LSP-compatible keymaps ────────────────────────────────────────────────
   -- gd / K / gr / gR / <C-k> are registered as Swank fallbacks only when no
   -- LSP is currently attached.  If an LSP attaches later its keymaps naturally
@@ -260,6 +263,7 @@ function M.attach(bufnr, config)
       { leader .. "l", buffer = bufnr, group = "connection" },
       { leader .. "t", buffer = bufnr, group = "trace" },
       { leader .. "p", buffer = bufnr, group = "profiling" },
+      { leader .. "T", buffer = bufnr, group = "threads" },
     })
   end
 end
