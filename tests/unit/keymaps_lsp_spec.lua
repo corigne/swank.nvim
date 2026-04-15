@@ -84,28 +84,30 @@ describe("keymaps.attach LSP-fallback registration", function()
     return false
   end
 
-  it("registers gd/K/gr/<C-k> when no LSP is attached", function()
+  it("registers gd/K/gr/gR/<C-k> when no LSP is attached", function()
     vim.lsp.get_clients = function() return {} end
     keymaps.attach(1, make_config())
     assert.is_true(has_keymap("gd"))
     assert.is_true(has_keymap("K"))
     assert.is_true(has_keymap("gr"))
+    assert.is_true(has_keymap("gR"))
     assert.is_true(has_keymap("<C-k>"))
   end)
 
-  it("does NOT register gd/K/gr/<C-k> when an LSP is already attached", function()
+  it("does NOT register gd/K/gr/gR/<C-k> when an LSP is already attached", function()
     vim.lsp.get_clients = function() return { { id = 1, name = "sextant" } } end
     keymaps.attach(1, make_config())
     assert.is_false(has_keymap("gd"))
     assert.is_false(has_keymap("K"))
     assert.is_false(has_keymap("gr"))
+    assert.is_false(has_keymap("gR"))
     assert.is_false(has_keymap("<C-k>"))
   end)
 
   it("always registers gR regardless of LSP presence", function()
     vim.lsp.get_clients = function() return { { id = 1, name = "sextant" } } end
     keymaps.attach(1, make_config())
-    assert.is_true(has_keymap("gR"))
+    assert.is_false(has_keymap("gR"))
   end)
 
   it("registers a LspDetach autocmd on the buffer", function()

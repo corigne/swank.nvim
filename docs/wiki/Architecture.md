@@ -165,7 +165,7 @@ keymaps naturally overwrite these (last writer wins for buffer-local keymaps).
 `LspDetach` is listened to on the buffer; when the last client leaves the
 Swank fallbacks are re-registered.
 
-`gR` (find callers) has no LSP equivalent and is always registered pointing to Swank.
+`gR` (call hierarchy / callers) follows the same pattern as the others — Swank fallback when no LSP is attached, LSP-owned when one is.
 
 | Keymap | When LSP attached | When no LSP |
 |--------|-------------------|-------------|
@@ -173,7 +173,7 @@ Swank fallbacks are re-registered.
 | `K` | LSP owns it | `client.describe(sym)` |
 | `gr` | LSP owns it | `client.xref_references(sym)` |
 | `<C-k>` | LSP owns it | `client.autodoc()` |
-| `gR` | *(always Swank)* | `client.xref_calls(sym)` |
+| `gR` | LSP owns it | `client.xref_calls(sym)` |
 
 All other Swank keymaps (`<Leader>ee`, `<Leader>id`, REPL, compile, trace, …)
 are unconditional — they have no LSP equivalents.

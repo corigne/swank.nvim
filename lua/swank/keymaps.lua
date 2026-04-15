@@ -122,30 +122,21 @@ function M.attach(bufnr, config)
   map("n", "tg", function() client.refresh_traces() end, "Refresh trace entries")
 
   -- ── LSP-compatible keymaps ────────────────────────────────────────────────
-  -- gd / K / gr / <C-k> are registered as Swank fallbacks only when no LSP
-  -- is currently attached.  If an LSP attaches later its keymaps naturally
+  -- gd / K / gr / gR / <C-k> are registered as Swank fallbacks only when no
+  -- LSP is currently attached.  If an LSP attaches later its keymaps naturally
   -- overwrite these (last writer wins for buffer-local keymaps).  When the
   -- last LSP client detaches we re-register the Swank fallbacks so the
   -- familiar bindings keep working without a Language Server.
-  --
-  -- gR (callers / call hierarchy) has no standard LSP equivalent and is
-  -- always registered pointing to Swank.
 
   local lsp_opts = { buffer = bufnr, silent = true }
   local function lsp(mode, lhs, rhs, desc)
     vim.keymap.set(mode, lhs, rhs, vim.tbl_extend("force", lsp_opts, { desc = desc }))
   end
 
-  -- gR — callers: no LSP equivalent, always Swank.
-  lsp("n", "gR", function()
-    local sym = cword()
-    if sym then client.xref_calls(sym) end
-  end, "Find callers (Swank)")
-
-  -- Register gd / K / gr / <C-k> → Swank as the initial fallback.
-  -- These are only set when no LSP is already attached; if one is, we let its
-  -- own keymaps take sole ownership.  The LspDetach autocmd below restores
-  -- them whenever the last client leaves.
+  -- Register gd / K / gr / gR / <C-k> → Swank as the initial fallback.
+  -- Only set when no LSP is already attached; if one is, we let its own
+  -- keymaps take sole ownership.  The LspDetach autocmd below restores them
+  -- whenever the last client leaves.
   local function register_lsp_fallbacks()
     -- gd — go to definition
     lsp("n", "gd", function()
@@ -165,8 +156,13 @@ function M.attach(bufnr, config)
       if sym then client.xref_references(sym) end
     end, "Find references (Swank fallback)")
 
+    -- gR — callers (call hierarchy incoming calls)
+    lsp("n", "gR", function()
+      local sym = cword()
+      if sym then client.xref_calls(sym) end
+    end, "Find callers (Swank fallback)")
+
     -- <C-k> — signature help, normal mode only.
-    -- Insert-mode <C-k> intentionally omitted (see comment on gR above).
     lsp("n", "<C-k>", function()
       client.autodoc()
     end, "Signature help (Swank fallback)")
