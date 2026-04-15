@@ -47,6 +47,39 @@ function M.attach(bufnr, config)
   -- ── REPL ─────────────────────────────────────────────────────────────────
   map("n", "rw", function() require("swank.ui.repl").toggle() end, "Toggle REPL window")
 
+  -- REPL history: re-open eval prompt pre-filled with a history entry
+  map("n", "e<Up>", function()
+    local expr = client.history_prev()
+    if not expr then
+      vim.notify("swank.nvim: no more history", vim.log.levels.INFO)
+      return
+    end
+    vim.ui.input({ prompt = "Eval: ", default = expr }, function(input)
+      if not input or input == "" then return end
+      client.history_push(input)
+      require("swank.ui.repl").show_input(input)
+      client.rex({ "swank:eval-and-grab-output", input }, function(result)
+        require("swank.ui.repl").show_result(result)
+      end)
+    end)
+  end, "Re-eval from history (older)")
+
+  map("n", "e<Down>", function()
+    local expr = client.history_next()
+    if not expr then
+      vim.notify("swank.nvim: at end of history", vim.log.levels.INFO)
+      return
+    end
+    vim.ui.input({ prompt = "Eval: ", default = expr }, function(input)
+      if not input or input == "" then return end
+      client.history_push(input)
+      require("swank.ui.repl").show_input(input)
+      client.rex({ "swank:eval-and-grab-output", input }, function(result)
+        require("swank.ui.repl").show_result(result)
+      end)
+    end)
+  end, "Re-eval from history (newer)")
+
   -- ── Introspection ─────────────────────────────────────────────────────────
   -- describe: cursor word (n) or selection (v)
   map("n", "id", function()

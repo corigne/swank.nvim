@@ -29,6 +29,16 @@ local silent_count = 0
 ---@type string  current package context
 local current_package = "COMMON-LISP-USER"
 
+-- ---------------------------------------------------------------------------
+-- REPL input history (ring buffer)
+-- ---------------------------------------------------------------------------
+
+local HISTORY_MAX = 100
+---@type string[]  ordered oldest-first; newest at [#history]
+local history = {}
+---@type integer  0 = not browsing; positive = index from end being browsed
+local history_pos = 0
+
 local function next_id()
   msg_id = msg_id + 1
   return msg_id
@@ -353,6 +363,7 @@ end
 function M.eval_interactive()
   vim.ui.input({ prompt = "Eval: " }, function(input)
     if not input or input == "" then return end
+    M.history_push(input)
     require("swank.ui.repl").show_input(input)
     M.rex({ "swank:eval-and-grab-output", input }, function(result)
       require("swank.ui.repl").show_result(result)
@@ -984,6 +995,52 @@ function M._test_reset()
   msg_id           = 0
   stderr_log       = {}
   impl_job_id      = nil
+  history          = {}
+  history_pos      = 0
+end
+
+-- ---------------------------------------------------------------------------
+-- REPL history public API
+-- ---------------------------------------------------------------------------
+
+--- Push an expression into the history ring buffer.
+---@param expr string
+function M.history_push(expr)
+  if not expr or expr == "" then return end
+  -- Deduplicate: if the same string is already the most recent entry, skip.
+  if history[#history] == expr then return end
+  table.insert(history, expr)
+  if #history > HISTORY_MAX then
+    table.remove(history, 1)
+  end
+  history_pos = 0
+end
+
+--- Return the previous history entry (older), or nil when exhausted.
+---@return string|nil
+function M.history_prev()
+  if #history == 0 then return nil end
+  history_pos = math.min(history_pos + 1, #history)
+  return history[#history - history_pos + 1]
+end
+
+--- Return the next history entry (newer), or nil when at the front.
+---@return string|nil
+function M.history_next()
+  if history_pos <= 1 then
+    history_pos = 0
+    return nil
+  end
+  history_pos = history_pos - 1
+  return history[#history - history_pos + 1]
+end
+
+--- Return a copy of the history list (oldest first), for inspection/tests.
+---@return string[]
+function M.get_history()
+  local copy = {}
+  for i, v in ipairs(history) do copy[i] = v end
+  return copy
 end
 
 return M
