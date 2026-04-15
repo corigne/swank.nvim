@@ -671,6 +671,53 @@ function M.disassemble(sym)
   end)
 end
 
+-- ---------------------------------------------------------------------------
+-- Profiling
+-- ---------------------------------------------------------------------------
+
+--- Toggle profiling on a named function
+---@param sym? string  defaults to word under cursor
+function M.profile(sym)
+  local target = sym or vim.fn.expand("<cword>")
+  if not target or target == "" then return end
+  M.rex({ "swank:profile-fdefinition", target }, function(result)
+    if type(result) == "table" and result[1] == ":ok" then
+      vim.notify("swank.nvim: profiling " .. target, vim.log.levels.INFO)
+    else
+      vim.notify("swank.nvim: profile failed for " .. target, vim.log.levels.WARN)
+    end
+  end)
+end
+
+--- Remove profiling from all functions
+function M.unprofile_all()
+  M.rex({ "swank:unprofile-all" }, function(result)
+    if type(result) == "table" and result[1] == ":ok" then
+      vim.notify("swank.nvim: all functions unprofiled", vim.log.levels.INFO)
+    end
+  end)
+end
+
+--- Show profiling report in a scratch buffer
+function M.profile_report()
+  M.rex({ "swank:profile-report" }, function(result)
+    if type(result) ~= "table" or result[1] ~= ":ok" then
+      vim.notify("swank.nvim: profile-report failed", vim.log.levels.WARN)
+      return
+    end
+    show_expansion(tostring(result[2] or ""), "profile-report")
+  end)
+end
+
+--- Reset all profiling counters
+function M.profile_reset()
+  M.rex({ "swank:profile-reset" }, function(result)
+    if type(result) == "table" and result[1] == ":ok" then
+      vim.notify("swank.nvim: profiling counters reset", vim.log.levels.INFO)
+    end
+  end)
+end
+
 --- Switch package interactively
 function M.set_package_interactive()
   vim.ui.input({ prompt = "Package: ", default = current_package }, function(pkg)

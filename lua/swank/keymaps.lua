@@ -144,6 +144,12 @@ function M.attach(bufnr, config)
   map("n", "tc", function() client.clear_traces() end,   "Clear trace entries")
   map("n", "tg", function() client.refresh_traces() end, "Refresh trace entries")
 
+  -- ── Profiling ─────────────────────────────────────────────────────────────
+  map("n", "pp", function() client.profile() end,         "Profile symbol at cursor")
+  map("n", "pP", function() client.unprofile_all() end,   "Unprofile all functions")
+  map("n", "pr", function() client.profile_report() end,  "Show profiling report")
+  map("n", "p0", function() client.profile_reset() end,   "Reset profiling counters")
+
   -- ── LSP-compatible keymaps ────────────────────────────────────────────────
   -- gd / K / gr / gR / <C-k> are registered as Swank fallbacks only when no
   -- LSP is currently attached.  If an LSP attaches later its keymaps naturally
@@ -220,6 +226,7 @@ function M.attach(bufnr, config)
       { leader .. "f", buffer = bufnr, group = "file/compile" },
       { leader .. "l", buffer = bufnr, group = "connection" },
       { leader .. "t", buffer = bufnr, group = "trace" },
+      { leader .. "p", buffer = bufnr, group = "profiling" },
     })
   end
 end
