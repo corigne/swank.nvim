@@ -15,8 +15,7 @@ server. swank.nvim now treats any attached LSP client as first-class and uses Sw
 a fallback when no LSP is present.
 
 **What changed:**
-- `gd`, `K`, `gr`, `<C-k>` keymaps delegate to `vim.lsp.buf.*` when an LSP is attached; fall back to Swank when not.
-- `gR` (find callers / call hierarchy) remains Swank-only — no standard LSP equivalent.
+- `gd`, `K`, `gr`, `gR`, `<C-k>` are registered as Swank fallbacks only when no LSP is attached. If an LSP is present its own keymaps take precedence; the Swank bindings are restored via `LspDetach` when the last client leaves.
 - All three completion sources (`blink_source`, `sources/blink`, `sources/nvim_cmp`) disable themselves when an LSP is attached, preventing duplicate completions.
 - Detection is generic: any attached LSP client triggers LSP-first behaviour, not just Sextant.
 - Swank retains exclusive ownership of: REPL, eval, compile, trace, debug (SLDB), inspector, apropos — none of these have LSP equivalents.
