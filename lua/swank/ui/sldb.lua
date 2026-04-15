@@ -160,7 +160,7 @@ local function build_content()
 
   -- Statusline: pinned keymap hint. %< marks the truncation point so the
   -- critical keys on the left are preserved on narrow windows.
-  local statusline = "  [0-9]restart  [a]bort  [c]ont  [s]tep  [n]ext  quit [q]%<  [e]val  [v]src  [l]ocals"
+  local statusline = "  [0-9]restart  [a]bort  [c]ont  [s]tep  [n]ext  quit [q]%<  [e]val  [v]src  [l]ocals  [i]nspect"
 
   return lines, { restart_lines = restart_lines, frame_lines = frame_lines }, winbar, statusline
 end
@@ -242,6 +242,10 @@ local function setup_keymaps()
       end
     )
   end, "View frame source")
+
+  map("i", function()
+    M.inspect_frame()
+  end, "Inspect object in frame")
 
   map("l", function()
     local frame = frame_at_cursor()
@@ -403,6 +407,20 @@ end
 --- Step over to the next expression at the same level
 function M.step_next()
   client().rex({ "swank:sldb-next", frame_at_cursor() }, function(_) end, nil, state.thread)
+end
+
+--- Inspect an object in the given frame (or frame at cursor when frame is nil)
+---@param frame? number
+function M.inspect_frame(frame)
+  local f = frame ~= nil and frame or frame_at_cursor()
+  client().rex(
+    { "swank:inspect-in-frame", f },
+    function(result)
+      require("swank.ui.inspector").open(result)
+    end,
+    nil,
+    state.thread
+  )
 end
 
 -- Exported for testing: expose state and build_content so sldb_spec can

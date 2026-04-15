@@ -93,6 +93,26 @@ function M.attach(bufnr, config)
     if sym then client.xref_references(sym) end
   end, "Who references symbol at cursor")
 
+  map("n", "xb", function()
+    local sym = cword()
+    if sym then client.xref_bindings(sym) end
+  end, "Who binds symbol at cursor")
+
+  map("n", "xs", function()
+    local sym = cword()
+    if sym then client.xref_set(sym) end
+  end, "Who sets symbol at cursor")
+
+  map("n", "xm", function()
+    local sym = cword()
+    if sym then client.xref_macroexpands(sym) end
+  end, "Who macroexpands symbol at cursor")
+
+  map("n", "xS", function()
+    local sym = cword()
+    if sym then client.xref_specializes(sym) end
+  end, "Who specializes on symbol at cursor")
+
   map("n", "xd", function()
     local sym = cword()
     if sym then client.find_definition(sym) end

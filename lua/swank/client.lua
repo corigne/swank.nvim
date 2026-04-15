@@ -726,6 +726,26 @@ function M.xref_references(sym)
 end
 
 ---@param sym string
+function M.xref_bindings(sym)
+  M.rex({ "swank:xref", ":bindings", sym }, function(r) require("swank.ui.xref").show(r, "bindings") end)
+end
+
+---@param sym string
+function M.xref_set(sym)
+  M.rex({ "swank:xref", ":sets", sym }, function(r) require("swank.ui.xref").show(r, "sets") end)
+end
+
+---@param sym string
+function M.xref_macroexpands(sym)
+  M.rex({ "swank:xref", ":macroexpands", sym }, function(r) require("swank.ui.xref").show(r, "macroexpands") end)
+end
+
+---@param sym string
+function M.xref_specializes(sym)
+  M.rex({ "swank:xref", ":specializes", sym }, function(r) require("swank.ui.xref").show(r, "specializes") end)
+end
+
+---@param sym string
 function M.find_definition(sym)
   M.rex({ "swank:find-definitions-for-emacs", sym }, function(r) require("swank.ui.xref").show(r, "definition") end)
 end

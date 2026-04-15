@@ -176,3 +176,44 @@ describe("sldb step controls", function()
       "expected [n]/next in statusline")
   end)
 end)
+
+describe("sldb inspect-in-frame", function()
+  local client = require("swank.client")
+  local protocol = require("swank.protocol")
+
+  local function make_mock()
+    local sent = {}
+    local t = {
+      send       = function(self, p) table.insert(sent, p) end,
+      disconnect = function(self) end,
+    }
+    return t, sent
+  end
+
+  before_each(function()
+    local mock, _ = make_mock()
+    client._test_inject(mock)
+    sldb._state.thread = "T1"
+    sldb._state.level  = 1
+  end)
+
+  after_each(function()
+    client._test_reset()
+  end)
+
+  it("inspect_frame() sends swank:inspect-in-frame with frame number", function()
+    local sent_form
+    local orig = client.rex
+    client.rex = function(form, _cb, _pkg, _thread) sent_form = form end
+    sldb.inspect_frame(3)
+    assert.equals("swank:inspect-in-frame", sent_form[1])
+    assert.equals(3, sent_form[2])
+    client.rex = orig
+  end)
+
+  it("statusline hint includes [i]nspect", function()
+    local _, _, _, statusline = sldb._build_content()
+    assert.is_true(statusline:find("inspect") ~= nil or statusline:find("%[i%]") ~= nil,
+      "expected inspect in statusline")
+  end)
+end)
