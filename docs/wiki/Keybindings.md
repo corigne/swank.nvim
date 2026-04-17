@@ -114,8 +114,11 @@ Config File) and `<Leader>fd` (common LSP definition binding).
 ## LSP-compatible fallbacks
 
 These bindings are registered as Swank fallbacks only when no LSP client is attached
-to the buffer. If an LSP client attaches later its own keymaps take precedence. When
-the last LSP client detaches the Swank fallbacks are automatically restored.
+to the buffer. When an LSP client attaches, swank **actively removes** these keymaps so
+the LSP's own bindings take full ownership. (Neovim 0.12+ does not overwrite existing
+buffer-local keymaps, so passive "last writer wins" is not reliable — explicit deletion
+is required.) When the last LSP client detaches the Swank fallbacks are automatically
+restored.
 
 | Mode | Keymap | Action | LSP equivalent |
 |------|--------|--------|----------------|

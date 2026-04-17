@@ -188,46 +188,43 @@ function M.attach(bufnr, config)
 
   -- ── LSP-compatible keymaps ────────────────────────────────────────────────
   -- gd / K / gr / gR / <C-k> are registered as Swank fallbacks only when no
-  -- LSP is currently attached.  If an LSP attaches later its keymaps naturally
-  -- overwrite these (last writer wins for buffer-local keymaps).  When the
-  -- last LSP client detaches we re-register the Swank fallbacks so the
-  -- familiar bindings keep working without a Language Server.
+  -- LSP is attached.  When an LSP client attaches we actively DELETE the swank
+  -- fallbacks so the LSP keymaps take full ownership (Neovim 0.12+ will not
+  -- overwrite an existing buffer-local keymap, so we must remove them ourselves).
+  -- When the last LSP client detaches we restore the Swank fallbacks.
 
   local lsp_opts = { buffer = bufnr, silent = true }
   local function lsp(mode, lhs, rhs, desc)
     vim.keymap.set(mode, lhs, rhs, vim.tbl_extend("force", lsp_opts, { desc = desc }))
   end
 
-  -- Register gd / K / gr / gR / <C-k> → Swank as the initial fallback.
-  -- Only set when no LSP is already attached; if one is, we let its own
-  -- keymaps take sole ownership.  The LspDetach autocmd below restores them
-  -- whenever the last client leaves.
+  local function delete_lsp_fallbacks()
+    for _, lhs in ipairs(M._lsp_fallback_keys) do
+      pcall(vim.keymap.del, "n", lhs, { buffer = bufnr })
+    end
+  end
+
   local function register_lsp_fallbacks()
-    -- gd — go to definition
     lsp("n", "gd", function()
       local sym = cword()
       if sym then client.find_definition(sym) end
     end, "Go to definition (Swank fallback)")
 
-    -- K — hover / describe
     lsp("n", "K", function()
       local sym = cword()
       if sym then client.describe(sym) end
     end, "Describe symbol (Swank fallback)")
 
-    -- gr — references
     lsp("n", "gr", function()
       local sym = cword()
       if sym then client.xref_references(sym) end
     end, "Find references (Swank fallback)")
 
-    -- gR — callers (call hierarchy incoming calls)
     lsp("n", "gR", function()
       local sym = cword()
       if sym then client.xref_calls(sym) end
     end, "Find callers (Swank fallback)")
 
-    -- <C-k> — signature help, normal mode only.
     lsp("n", "<C-k>", function()
       client.autodoc()
     end, "Signature help (Swank fallback)")
@@ -237,7 +234,15 @@ function M.attach(bufnr, config)
     register_lsp_fallbacks()
   end
 
-  -- Re-register Swank fallbacks when the last LSP client detaches from the buffer.
+  -- When an LSP client attaches, actively remove Swank fallbacks so LSP wins.
+  vim.api.nvim_create_autocmd("LspAttach", {
+    buffer = bufnr,
+    callback = function()
+      delete_lsp_fallbacks()
+    end,
+  })
+
+  -- Re-register Swank fallbacks when the last LSP client detaches.
   vim.api.nvim_create_autocmd("LspDetach", {
     buffer = bufnr,
     callback = function()
@@ -274,5 +279,8 @@ end
 function M._has_lsp(bufnr)
   return #vim.lsp.get_clients({ bufnr = bufnr }) > 0
 end
+
+--- The five LSP-mimic keys managed as Swank fallbacks (exported for tests).
+M._lsp_fallback_keys = { "gd", "K", "gr", "gR", "<C-k>" }
 
 return M
