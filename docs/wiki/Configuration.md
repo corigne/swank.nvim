@@ -1,28 +1,24 @@
 # Configuration
 
-Full reference for `require("swank").setup(opts)`.
-
 All keys are optional. Unset keys keep their default values.
 
 A machine-readable **JSON Schema** is available at
 [`schemas/swank.nvim.json`](https://github.com/corigne/swank.nvim/blob/main/schemas/swank.nvim.json).
 If you use [neoconf.nvim](https://github.com/folke/neoconf.nvim), swank.nvim registers the schema
-automatically during `setup()`, enabling completions and validation in `.neoconf.json`.
+automatically, enabling completions and validation in `.neoconf.json`.
 
 ---
 
 ## Examples
 
-### lazy
+### Minimal
 
-#### Minimal
 ```lua
-{
-  "corigne/swank.nvim",
-},
+{ "corigne/swank.nvim" }
 ```
 
-#### Custom Opts
+### Custom opts
+
 ```lua
 {
   "corigne/swank.nvim",
@@ -35,24 +31,30 @@ automatically during `setup()`, enabling completions and validation in `.neoconf
 }
 ```
 
-### Manual Setup
-
-#### Manual connect, specific port
+### Manual connect (no autostart)
 
 ```lua
-require("swank").setup({
-  autostart = { enabled = false },
-  server    = { host = "127.0.0.1", port = 14005 },
-})
+{
+  "corigne/swank.nvim",
+  ft   = { "lisp", "commonlisp" },
+  opts = {
+    autostart = { enabled = false },
+    server    = { host = "127.0.0.1", port = 14005 },
+  },
+}
 ```
 
-#### CCL with bottom REPL
+### CCL with bottom REPL
 
 ```lua
-require("swank").setup({
-  autostart = { enabled = true, implementation = "ccl" },
-  ui        = { repl = { position = "bottom", size = 0.35 } },
-})
+{
+  "corigne/swank.nvim",
+  ft   = { "lisp", "commonlisp" },
+  opts = {
+    autostart = { enabled = true, implementation = "ccl" },
+    ui        = { repl = { position = "bottom", size = 0.35 } },
+  },
+}
 ```
 
 ---
@@ -60,7 +62,7 @@ require("swank").setup({
 ## Full schema with defaults
 
 ```lua
-require("swank").setup({
+{
   -- Key prefix for all swank.nvim keymaps (default: "<Leader>")
   leader = "<Leader>",
 
@@ -98,7 +100,7 @@ require("swank").setup({
     ":swank-c-p-c",
     ":swank-package-fu",
   },
-})
+}
 ```
 
 ---
@@ -139,9 +141,7 @@ file or port yourself.
 To disable autostart and connect manually:
 
 ```lua
-require("swank").setup({
-  autostart = { enabled = false },
-})
+opts = { autostart = { enabled = false } }
 ```
 
 Then connect with `<Leader>lc` (or `<Leader>rr` to start + connect).

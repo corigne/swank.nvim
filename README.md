@@ -109,13 +109,11 @@ Then connect from Neovim with `<Leader>lc`.
 
 **lazy.nvim:**
 
-Minimal config:
 ```lua
-{
-  "corigne/swank.nvim"
-},
+{ "corigne/swank.nvim" }
 ```
-See [the default configuration](https://github.com/corigne/swank.nvim/wiki/Configuration) for an explanation of all options.
+
+Pass any options via `opts`. See the [Configuration wiki page](https://github.com/corigne/swank.nvim/wiki/Configuration) for the full reference.
 
 **Requires:** Neovim 0.10+. See [Prerequisites](#prerequisites) above.
 

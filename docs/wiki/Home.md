@@ -22,27 +22,15 @@
 
 ### 1. Install
 
-**lazy.nvim:**
 ```lua
 {
   "corigne/swank.nvim",
-  ft = { "lisp", "commonlisp" },
+  ft   = { "lisp", "commonlisp" },
   opts = {},
 }
 ```
 
-### 2. Wire up per-buffer
-
-```lua
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "lisp", "commonlisp" },
-  callback = function(ev)
-    require("swank").attach(ev.buf)
-  end,
-})
-```
-
-### 3. Open a Lisp file
+### 2. Open a Lisp file
 
 Open any `.lisp` or `.cl` file. swank.nvim spawns SBCL and connects
 automatically. The REPL appears as soon as the server is ready.
