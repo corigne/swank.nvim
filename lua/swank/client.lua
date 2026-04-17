@@ -26,6 +26,9 @@ local callbacks = {}
 ---@type integer  count of in-flight "silent" rex calls; suppresses :write-string while > 0
 local silent_count = 0
 
+---@type integer  count of in-flight user-visible rex calls; drives is_evaluating() and status notify
+local user_pending = 0
+
 ---@type string  current package context
 local current_package = "COMMON-LISP-USER"
 
@@ -212,6 +215,7 @@ function M.disconnect()
     transport = nil
   end
   connection_state = "disconnected"
+  user_pending = 0
   if impl_job_id then
     vim.fn.jobstop(impl_job_id)
     impl_job_id = nil
@@ -222,6 +226,24 @@ end
 ---@return boolean
 function M.is_connected()
   return connection_state == "connected"
+end
+
+--- Returns true when at least one user-triggered eval is in flight.
+--- Useful for statusline integration and testing.
+---@return boolean
+function M.is_evaluating()
+  return user_pending > 0
+end
+
+--- Send an interrupt signal to the current REPL thread.
+--- Use to cancel a long-running evaluation.
+--- Uses `t` as the thread target (matches what rex() uses for normal evals).
+function M.interrupt()
+  if not transport then
+    vim.notify("swank.nvim: not connected", vim.log.levels.WARN)
+    return
+  end
+  transport:send(protocol.serialize({ ":emacs-interrupt", true }))
 end
 
 function M.get_package()
@@ -265,6 +287,29 @@ function M.silent_rex(form, cb, pkg, thread)
   silent_count = silent_count + 1
   M.rex(form, function(result)
     silent_count = math.max(0, silent_count - 1)
+    cb(result)
+  end, pkg, thread)
+end
+
+--- Like rex, but tracks user-visible evaluation. Emits a status notification
+--- when the first eval becomes pending and clears tracking when all complete.
+--- Use for all user-triggered evals (eval, compile, load).
+---@param form table
+---@param cb fun(result: any)
+---@param pkg string|nil
+---@param thread any|nil
+local function user_rex(form, cb, pkg, thread)
+  if not transport then
+    -- Delegate to rex so it emits the "not connected" error; do not touch user_pending.
+    M.rex(form, cb, pkg, thread)
+    return
+  end
+  if user_pending == 0 then
+    vim.notify("swank.nvim: evaluating…", vim.log.levels.INFO)
+  end
+  user_pending = user_pending + 1
+  M.rex(form, function(result)
+    user_pending = math.max(0, user_pending - 1)
     cb(result)
   end, pkg, thread)
 end
@@ -344,7 +389,7 @@ function M.eval_toplevel()
   local form = M._form_at_cursor()
   if not form or form == "" then return end
   require("swank.ui.repl").show_input(form)
-  M.rex({ "swank:eval-and-grab-output", form }, function(result)
+  user_rex({ "swank:eval-and-grab-output", form }, function(result)
     require("swank.ui.repl").show_result(result)
   end)
 end
@@ -354,7 +399,7 @@ function M.eval_region()
   local lines = M._get_visual_selection()
   if not lines then return end
   require("swank.ui.repl").show_input(lines)
-  M.rex({ "swank:eval-and-grab-output", lines }, function(result)
+  user_rex({ "swank:eval-and-grab-output", lines }, function(result)
     require("swank.ui.repl").show_result(result)
   end)
 end
@@ -365,7 +410,7 @@ function M.eval_interactive()
     if not input or input == "" then return end
     M.history_push(input)
     require("swank.ui.repl").show_input(input)
-    M.rex({ "swank:eval-and-grab-output", input }, function(result)
+    user_rex({ "swank:eval-and-grab-output", input }, function(result)
       require("swank.ui.repl").show_result(result)
     end)
   end)
@@ -566,20 +611,22 @@ function M.load_file()
     vim.notify("swank.nvim: buffer has no file path", vim.log.levels.WARN)
     return
   end
-  M.rex({ "swank:load-file", path }, function(result)
+  user_rex({ "swank:load-file", path }, function(result)
     require("swank.ui.repl").show_result(result)
   end)
 end
 
 --- Compile current file
-function M.compile_file()
+---@param silent boolean|nil  when true, suppress status notifications (e.g. for auto-save)
+function M.compile_file(silent)
   local path = vim.api.nvim_buf_get_name(0)
   if path == "" then
     vim.notify("swank.nvim: buffer has no file path", vim.log.levels.WARN)
     return
   end
-  M.rex({ "swank:compile-file-for-emacs", path, false }, function(result)
-    require("swank.ui.notes").show(result, path)
+  local rex_fn = silent and M.rex or user_rex
+  rex_fn({ "swank:compile-file-for-emacs", path, false }, function(result)
+    require("swank.ui.notes").show(result, path, silent)
   end)
 end
 
@@ -592,7 +639,7 @@ function M.compile_form()
   -- position must be a quoted list of location specs matching SLIME's format:
   -- '((:line L COL)) -- lists are not self-evaluating in CL, so QUOTE is required.
   local position = { "QUOTE", { { ":line", row, col } } }
-  M.rex({ "swank:compile-string-for-emacs", form, bufname, position, false, false }, function(result)
+  user_rex({ "swank:compile-string-for-emacs", form, bufname, position, false, false }, function(result)
     require("swank.ui.notes").show(result, bufname)
   end)
 end
@@ -1056,6 +1103,8 @@ function M._test_reset()
   current_package  = "COMMON-LISP-USER"
   callbacks        = {}
   msg_id           = 0
+  silent_count     = 0
+  user_pending     = 0
   stderr_log       = {}
   impl_job_id      = nil
   history          = {}
@@ -1096,6 +1145,18 @@ function M.history_next()
   end
   history_pos = history_pos - 1
   return history[#history - history_pos + 1]
+end
+
+--- Eval a previously-run expression (from history replay in keymaps).
+--- Tracks user_pending the same as other user-visible evals.
+---@param input string
+function M.eval_replay(input)
+  if not input or input == "" then return end
+  M.history_push(input)
+  require("swank.ui.repl").show_input(input)
+  user_rex({ "swank:eval-and-grab-output", input }, function(result)
+    require("swank.ui.repl").show_result(result)
+  end)
 end
 
 --- Return a copy of the history list (oldest first), for inspection/tests.

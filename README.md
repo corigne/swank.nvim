@@ -49,7 +49,9 @@ leveraging testing and GitHub CI. It is designed to be a drop-in replacement for
 - [x] Trace dialog (SWANK-TRACE-DIALOG)
 - [x] which-key integration
 - [x] Autostart: spawn a CL implementation + Quicklisp when `require("swank").attach()` is called
-- [ ] Compiler notes -> `vim.diagnostic`
+- [x] Compiler notes -> `vim.diagnostic`
+- [x] Eval status notification while evaluation is in flight; interrupt running evaluation (`<Leader>eI`)
+- [x] Auto-compile on save (Swank fallback when no LSP attached) — surfaces compiler notes as diagnostics without loading code into the image
 
 ### Stretch goals
 

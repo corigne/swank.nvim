@@ -43,6 +43,7 @@ function M.attach(bufnr, config)
   map("v", "ee", function() client.eval_region() end,        "Eval region")
   map("n", "em", function() client.macroexpand_1() end,      "Macroexpand-1 form at cursor")
   map("n", "eM", function() client.macroexpand() end,        "Macroexpand-all form at cursor")
+  map("n", "eI", function() client.interrupt() end,          "Interrupt running evaluation")
 
   -- ── REPL ─────────────────────────────────────────────────────────────────
   map("n", "rw", function() require("swank.ui.repl").toggle() end, "Toggle REPL window")
@@ -56,11 +57,7 @@ function M.attach(bufnr, config)
     end
     vim.ui.input({ prompt = "Eval: ", default = expr }, function(input)
       if not input or input == "" then return end
-      client.history_push(input)
-      require("swank.ui.repl").show_input(input)
-      client.rex({ "swank:eval-and-grab-output", input }, function(result)
-        require("swank.ui.repl").show_result(result)
-      end)
+      client.eval_replay(input)
     end)
   end, "Re-eval from history (older)")
 
@@ -72,11 +69,7 @@ function M.attach(bufnr, config)
     end
     vim.ui.input({ prompt = "Eval: ", default = expr }, function(input)
       if not input or input == "" then return end
-      client.history_push(input)
-      require("swank.ui.repl").show_input(input)
-      client.rex({ "swank:eval-and-grab-output", input }, function(result)
-        require("swank.ui.repl").show_result(result)
-      end)
+      client.eval_replay(input)
     end)
   end, "Re-eval from history (newer)")
 

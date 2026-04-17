@@ -93,6 +93,79 @@ describe("swank.attach()", function()
   end)
 end)
 
+describe("swank.attach() BufWritePost autocmd", function()
+  local orig_config
+  local orig_keymaps_attach
+  local orig_has_lsp
+  local orig_is_connected
+  local orig_start
+  local orig_compile_file
+
+  before_each(function()
+    orig_config          = swank.config
+    orig_keymaps_attach  = require("swank.keymaps").attach
+    orig_has_lsp         = require("swank.keymaps")._has_lsp
+    orig_is_connected    = client.is_connected
+    orig_start           = client.start_and_connect
+    orig_compile_file    = client.compile_file
+
+    require("swank.keymaps").attach = function(_, _) end
+    client.start_and_connect        = function() end
+    swank.setup({})
+  end)
+
+  after_each(function()
+    swank.config                         = orig_config
+    require("swank.keymaps").attach      = orig_keymaps_attach
+    require("swank.keymaps")._has_lsp    = orig_has_lsp
+    client.is_connected                  = orig_is_connected
+    client.start_and_connect             = orig_start
+    client.compile_file                  = orig_compile_file
+  end)
+
+  it("calls compile_file(true) on BufWritePost when connected and no LSP", function()
+    local compile_called_silent = nil
+    client.is_connected              = function() return true end
+    require("swank.keymaps")._has_lsp = function(_) return false end
+    client.compile_file              = function(s) compile_called_silent = s end
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    swank.attach(bufnr)
+    vim.api.nvim_exec_autocmds("BufWritePost", { buffer = bufnr })
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+
+    assert.is_true(compile_called_silent)
+  end)
+
+  it("does NOT call compile_file when not connected", function()
+    local compile_called = false
+    client.is_connected               = function() return false end
+    require("swank.keymaps")._has_lsp = function(_) return false end
+    client.compile_file               = function(_) compile_called = true end
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    swank.attach(bufnr)
+    vim.api.nvim_exec_autocmds("BufWritePost", { buffer = bufnr })
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+
+    assert.is_false(compile_called)
+  end)
+
+  it("does NOT call compile_file when LSP is attached", function()
+    local compile_called = false
+    client.is_connected               = function() return true end
+    require("swank.keymaps")._has_lsp = function(_) return true end
+    client.compile_file               = function(_) compile_called = true end
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    swank.attach(bufnr)
+    vim.api.nvim_exec_autocmds("BufWritePost", { buffer = bufnr })
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+
+    assert.is_false(compile_called)
+  end)
+end)
+
 describe("swank.setup() neoconf schema registration", function()
   local orig_setup
 

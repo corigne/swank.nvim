@@ -77,6 +77,19 @@ function M.attach(bufnr)
   if M.config.autostart.enabled and not client.is_connected() then
     client.start_and_connect()
   end
+
+  -- Auto-compile on save: surface diagnostics via Swank when no LSP is attached.
+  -- Uses a buffer-scoped augroup to prevent duplicate autocmds on re-attach.
+  local augroup = vim.api.nvim_create_augroup("swank_autosave_" .. bufnr, { clear = true })
+  vim.api.nvim_create_autocmd("BufWritePost", {
+    group   = augroup,
+    buffer  = bufnr,
+    callback = function()
+      if client.is_connected() and not require("swank.keymaps")._has_lsp(bufnr) then
+        client.compile_file(true)
+      end
+    end,
+  })
 end
 
 return M

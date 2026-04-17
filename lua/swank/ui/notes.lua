@@ -50,11 +50,14 @@ end
 --- Map Swank compilation result notes to vim.diagnostic entries
 ---@param result any  (:ok (:compilation-result notes success duration load fasls)) or (:abort ...)
 ---@param source_path string  the file being compiled (used for diagnostics when note has no location)
-function M.show(result, source_path)
+---@param silent boolean|nil  when true, suppress vim.notify messages (errors/warnings still appear as diagnostics)
+function M.show(result, source_path, silent)
   if type(result) ~= "table" then return end
   local tag = tostring(result[1] or ""):lower()
   if tag ~= ":ok" then
-    vim.notify("swank.nvim: compilation aborted", vim.log.levels.WARN)
+    if not silent then
+      vim.notify("swank.nvim: compilation aborted", vim.log.levels.WARN)
+    end
     return
   end
 
@@ -115,8 +118,10 @@ function M.show(result, source_path)
   if success then
     local n = 0
     for _, d in pairs(by_file) do n = n + #d end
-    local msg = n == 0 and "compiled OK" or ("compiled with " .. n .. " note(s)")
-    vim.notify("swank.nvim: " .. msg, n == 0 and vim.log.levels.INFO or vim.log.levels.WARN)
+    if not silent then
+      local msg = n == 0 and "compiled OK" or ("compiled with " .. n .. " note(s)")
+      vim.notify("swank.nvim: " .. msg, n == 0 and vim.log.levels.INFO or vim.log.levels.WARN)
+    end
   end
 end
 

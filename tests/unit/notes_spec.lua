@@ -110,5 +110,43 @@ describe("notes", function()
       local result = { ":ok", { ":compilation-result", raw_notes, nil, 0.1, nil, nil } }
       assert.has_no_error(function() notes.show(result, "/tmp/test.lisp") end)
     end)
+
+    it("silent=true: suppresses vim.notify on :abort", function()
+      local notified = false
+      local orig = vim.notify
+      vim.notify = function() notified = true end
+      notes.show({ ":abort", "compile failed" }, "/file.lisp", true)
+      vim.notify = orig
+      assert.is_false(notified)
+    end)
+
+    it("silent=false: emits vim.notify on :abort", function()
+      local notified = false
+      local orig = vim.notify
+      vim.notify = function() notified = true end
+      notes.show({ ":abort", "compile failed" }, "/file.lisp", false)
+      vim.notify = orig
+      assert.is_true(notified)
+    end)
+
+    it("silent=true: suppresses 'compiled OK' notify on success with no notes", function()
+      local notified = false
+      local orig = vim.notify
+      vim.notify = function() notified = true end
+      local result = { ":ok", { ":compilation-result", {}, true, 0.01, nil, nil } }
+      notes.show(result, "/file.lisp", true)
+      vim.notify = orig
+      assert.is_false(notified)
+    end)
+
+    it("silent=false: emits 'compiled OK' notify on success with no notes", function()
+      local notified = false
+      local orig = vim.notify
+      vim.notify = function() notified = true end
+      local result = { ":ok", { ":compilation-result", {}, true, 0.01, nil, nil } }
+      notes.show(result, "/file.lisp", false)
+      vim.notify = orig
+      assert.is_true(notified)
+    end)
   end)
 end)

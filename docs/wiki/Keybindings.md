@@ -29,6 +29,7 @@ Config File) and `<Leader>fd` (common LSP definition binding).
 | n | `<Leader>ei` | Eval expression interactively (prompts for input) |
 | n | `<Leader>em` | Macroexpand-1 form at cursor |
 | n | `<Leader>eM` | Macroexpand-all form at cursor |
+| n | `<Leader>eI` | Interrupt the running evaluation (sends `:emacs-interrupt`) |
 
 ---
 

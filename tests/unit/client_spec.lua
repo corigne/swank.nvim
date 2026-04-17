@@ -1735,3 +1735,204 @@ describe("M.autodoc() debug trace and echo", function()
   end)
 end)
 
+-- ---------------------------------------------------------------------------
+-- is_evaluating / interrupt / eval_replay / user_pending tracking
+-- ---------------------------------------------------------------------------
+
+describe("eval status tracking", function()
+  local mock, sent
+  before_each(function()
+    silence_notify()
+    mock_ui()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+  end)
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("is_evaluating() returns false initially", function()
+    assert.is_false(client.is_evaluating())
+  end)
+
+  it("is_evaluating() returns true while a user_rex is in flight", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 0 })
+    client.eval_toplevel()
+    assert.is_true(client.is_evaluating())
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", "3" })
+    assert.is_false(client.is_evaluating())
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("is_evaluating() returns false after _test_reset", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 0 })
+    client.eval_toplevel()
+    assert.is_true(client.is_evaluating())
+    client._test_reset()
+    assert.is_false(client.is_evaluating())
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    -- re-inject so after_each reset works cleanly
+    client._test_inject(mock)
+  end)
+
+  it("notifies 'evaluating' only on the first pending eval (0→1 transition)", function()
+    local notify_count = 0
+    vim.notify = function(msg, _)
+      if msg and msg:find("evaluating") then notify_count = notify_count + 1 end
+    end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 0 })
+    client.eval_toplevel()
+    client.eval_toplevel()
+    assert.equals(1, notify_count)
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    restore_notify()
+  end)
+
+  it("does not increment user_pending when not connected", function()
+    client._test_reset()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 0 })
+    client.eval_toplevel()
+    assert.is_false(client.is_evaluating())
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    -- re-inject for after_each
+    client._test_inject(mock)
+  end)
+end)
+
+describe("M.interrupt()", function()
+  local mock, sent
+  before_each(function()
+    silence_notify()
+    mock_ui()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+  end)
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("sends :emacs-interrupt when connected", function()
+    client.interrupt()
+    assert.equals(1, #sent)
+    local msg = protocol.parse(sent[1])
+    assert.equals(":emacs-interrupt", msg[1])
+    assert.is_true(msg[2])
+  end)
+
+  it("emits WARN and sends nothing when not connected", function()
+    client._test_reset()
+    local warned = false
+    vim.notify = function(_, lvl)
+      if lvl == vim.log.levels.WARN then warned = true end
+    end
+    client.interrupt()
+    assert.is_true(warned)
+    assert.equals(0, #sent)
+    restore_notify()
+    client._test_inject(mock)
+  end)
+end)
+
+describe("M.eval_replay()", function()
+  local mock, sent
+  before_each(function()
+    silence_notify()
+    mock_ui()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+  end)
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("sends :eval-and-grab-output and tracks user_pending", function()
+    client.eval_replay("(+ 1 2)")
+    assert.is_true(client.is_evaluating())
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", "3" })
+    assert.is_false(client.is_evaluating())
+  end)
+
+  it("does nothing for nil or empty input", function()
+    client.eval_replay(nil)
+    client.eval_replay("")
+    assert.equals(0, #sent)
+  end)
+end)
+
+describe("M.compile_file() silent mode", function()
+  local mock, sent
+  before_each(function()
+    silence_notify()
+    mock_ui()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+  end)
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("silent=true: does not increment user_pending", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/fake/path/silent.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_file(true)
+    assert.is_false(client.is_evaluating())
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    restore_notify()
+  end)
+
+  it("silent=true: passes silent=true to notes.show", function()
+    local got_silent
+    require("swank.ui.notes").show = function(_, _, s) got_silent = s end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/fake/path/silent2.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_file(true)
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", nil })
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    assert.is_true(got_silent)
+    restore_notify()
+  end)
+
+  it("silent=false/nil: increments user_pending", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/fake/path/verbose.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_file()
+    assert.is_true(client.is_evaluating())
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    restore_notify()
+  end)
+end)
+
