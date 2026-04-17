@@ -153,8 +153,8 @@
    23 local history_pos = 0
 
       local function next_id()
-   73   msg_id = msg_id + 1
-   73   return msg_id
+   79   msg_id = msg_id + 1
+   79   return msg_id
       end
 
       -- ---------------------------------------------------------------------------
@@ -342,7 +342,7 @@
       --- Useful for statusline integration and testing.
       ---@return boolean
    23 function M.is_evaluating()
-   10   return user_pending > 0
+   12   return user_pending > 0
       end
 
       --- Send an interrupt signal to the current REPL thread.
@@ -370,20 +370,20 @@
       ---@param pkg string|nil  package context
       ---@param thread any|nil  thread id from :debug (nil → true, meaning Swank picks)
    23 function M.rex(form, cb, pkg, thread)
-   76   if not transport then
+   82   if not transport then
     3     vim.notify("swank.nvim: not connected", vim.log.levels.ERROR)
     3     return
         end
-   73   local id = next_id()
-   73   callbacks[id] = cb
-  146   local payload = protocol.serialize({
+   79   local id = next_id()
+   79   callbacks[id] = cb
+  158   local payload = protocol.serialize({
           ":emacs-rex",
-   73     form,
-   73     pkg or current_package,
-   73     thread ~= nil and thread or true,
-   73     id,
+   79     form,
+   79     pkg or current_package,
+   79     thread ~= nil and thread or true,
+   79     id,
         })
-   73   transport:send(payload)
+   79   transport:send(payload)
       end
 
       --- Like rex, but suppresses any :write-string output produced as a side effect.
@@ -409,19 +409,19 @@
       ---@param pkg string|nil
       ---@param thread any|nil
       local function user_rex(form, cb, pkg, thread)
-   18   if not transport then
+   24   if not transport then
           -- Delegate to rex so it emits the "not connected" error; do not touch user_pending.
     2     M.rex(form, cb, pkg, thread)
     2     return
         end
-   16   if user_pending == 0 then
-   15     vim.notify("swank.nvim: evaluating…", vim.log.levels.INFO)
+   22   if user_pending == 0 then
+   21     vim.notify("swank.nvim: evaluating…", vim.log.levels.INFO)
         end
-   16   user_pending = user_pending + 1
-   32   M.rex(form, function(result)
-    7     user_pending = math.max(0, user_pending - 1)
-    7     cb(result)
-   23   end, pkg, thread)
+   22   user_pending = user_pending + 1
+   44   M.rex(form, function(result)
+    9     user_pending = math.max(0, user_pending - 1)
+    9     cb(result)
+   31   end, pkg, thread)
       end
 
       -- ---------------------------------------------------------------------------
@@ -430,11 +430,11 @@
 
    46 protocol.on(":return", function(msg)
         -- msg = (:return (:ok result) id)  or  (:return (:abort condition) id)
-   32   local id = msg[3]
-   32   local cb = callbacks[id]
-   32   if cb then
-   30     callbacks[id] = nil
-   30     cb(msg[2])
+   34   local id = msg[3]
+   34   local cb = callbacks[id]
+   34   if cb then
+   32     callbacks[id] = nil
+   32     cb(msg[2])
         end
       end)
 
@@ -501,6 +501,19 @@
     7   require("swank.ui.repl").show_input(form)
    14   user_rex({ "swank:eval-and-grab-output", form }, function(result)
     2     require("swank.ui.repl").show_result(result)
+        end)
+      end
+
+      --- Eval the expression immediately before the cursor (SLIME's eval-last-expression)
+   23 function M.eval_last_expression()
+    4   local form = M._last_expression()
+    4   if not form or form == "" then
+    1     vim.notify("swank.nvim: no expression before cursor", vim.log.levels.WARN)
+    1     return
+        end
+    3   require("swank.ui.repl").show_input(form)
+    6   user_rex({ "swank:eval-and-grab-output", form }, function(result)
+    1     require("swank.ui.repl").show_result(result)
         end)
       end
 
@@ -737,6 +750,18 @@
     5   local rex_fn = silent and M.rex or user_rex
    10   rex_fn({ "swank:compile-file-for-emacs", path, false }, function(result)
     2     require("swank.ui.notes").show(result, path, silent)
+        end)
+      end
+
+      --- Compile and load the current file (equivalent to SLIME's C-c C-k)
+   23 function M.compile_and_load_file()
+    4   local path = vim.api.nvim_buf_get_name(0)
+    4   if path == "" then
+    1     vim.notify("swank.nvim: buffer has no file path", vim.log.levels.WARN)
+    1     return
+        end
+    6   user_rex({ "swank:compile-file-for-emacs", path, true }, function(result)
+    1     require("swank.ui.notes").show(result, path)
         end)
       end
 
@@ -1079,6 +1104,71 @@
       -- Helpers
       -- ---------------------------------------------------------------------------
 
+      --- Get the expression immediately before (ending at) the cursor.
+      --- Uses treesitter when available; falls back to paren scanning.
+      ---@return string|nil
+   23 function M._last_expression()
+    5   local bufnr = vim.api.nvim_get_current_buf()
+    5   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "commonlisp")
+    5   if ok and parser then
+    8     local tree = parser:parse()[1]
+    4     if tree then
+    4       local root = tree:root()
+    4       local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+    4       row = row - 1
+    4       local check_col = math.max(0, col - 1)
+    4       local node = root:named_descendant_for_range(row, check_col, row, check_col)
+    4       if node then
+    4         return vim.treesitter.get_node_text(node, bufnr)
+            end
+          end
+        end
+    1   return M._last_expression_paren()
+      end
+
+      --- Bracket-aware backward-sexp scanner (fallback when treesitter unavailable).
+      --- Finds the last balanced form or atom ending at the cursor.
+      ---@return string|nil
+   23 function M._last_expression_paren()
+    8   local bufnr = vim.api.nvim_get_current_buf()
+    8   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+        -- row is 1-indexed, col is 0-indexed byte offset.
+        -- Include the character under the cursor (col+1 in 1-indexed sub) so that
+        -- placing the cursor ON a closing paren captures the whole expression.
+    8   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, row, false)
+   16   lines[row] = lines[row]:sub(1, col + 1)
+    8   local text = table.concat(lines, "\n")
+
+        -- Skip trailing whitespace to land on the last character of the expression
+    8   local i = #text
+   17   while i > 0 and text:sub(i, i):match("%s") do i = i - 1 end
+    8   if i == 0 then return nil end
+
+    7   local c = text:sub(i, i)
+    7   if c == ")" then
+          -- Scan backward counting parens; ignores strings/comments (known limitation)
+    5     local depth = 0
+    5     local j = i
+   39     while j > 0 do
+   76       c = text:sub(j, j)
+   38       if c == ")" then depth = depth + 1
+   32       elseif c == "(" then
+    5         depth = depth - 1
+    5         if depth == 0 then return text:sub(j, i) end
+            end
+   34       j = j - 1
+          end
+        else
+          -- Atom: scan backward to the nearest delimiter
+    2     local j = i
+    8     while j > 1 and not text:sub(j - 1, j - 1):match('[%s%(%)%[%]",`;]') do
+    3       j = j - 1
+          end
+    2     return text:sub(j, i)
+        end
+    1   return nil
+      end
+
       --- Get the top-level form containing the cursor (treesitter → paren fallback)
    23 function M._form_at_cursor()
    10   local bufnr = vim.api.nvim_get_current_buf()
@@ -1203,22 +1293,22 @@
 
       -- Test-only injection hooks (do not call from production code)
    23 function M._test_inject(fake_transport)
-  160   transport        = fake_transport
-  160   connection_state = "connected"
+  168   transport        = fake_transport
+  168   connection_state = "connected"
       end
 
    23 function M._test_reset()
-  289   transport        = nil
-  289   connection_state = "disconnected"
-  289   current_package  = "COMMON-LISP-USER"
-  289   callbacks        = {}
-  289   msg_id           = 0
-  289   silent_count     = 0
-  289   user_pending     = 0
-  289   stderr_log       = {}
-  289   impl_job_id      = nil
-  289   history          = {}
-  289   history_pos      = 0
+  297   transport        = nil
+  297   connection_state = "disconnected"
+  297   current_package  = "COMMON-LISP-USER"
+  297   callbacks        = {}
+  297   msg_id           = 0
+  297   silent_count     = 0
+  297   user_pending     = 0
+  297   stderr_log       = {}
+  297   impl_job_id      = nil
+  297   history          = {}
+  297   history_pos      = 0
       end
 
       -- ---------------------------------------------------------------------------
@@ -1396,53 +1486,53 @@
       ---@return any, integer  (value, next_pos)
       local function read(src, pos)
         -- skip whitespace
- 1223   while pos <= #src and src:sub(pos, pos):match("%s") do pos = pos + 1 end
-  612   if pos > #src then error("unexpected end of input") end
+ 1291   while pos <= #src and src:sub(pos, pos):match("%s") do pos = pos + 1 end
+  646   if pos > #src then error("unexpected end of input") end
 
-  611   local ch = src:sub(pos, pos)
+  645   local ch = src:sub(pos, pos)
 
         -- list
-  611   if ch == "(" then
-  157     local result = {}
-  157     pos = pos + 1
+  645   if ch == "(" then
+  165     local result = {}
+  165     pos = pos + 1
           while true do
- 2073       while pos <= #src and src:sub(pos, pos):match("%s") do pos = pos + 1 end
- 1350       if src:sub(pos, pos) == ")" then return result, pos + 1 end
+ 2193       while pos <= #src and src:sub(pos, pos):match("%s") do pos = pos + 1 end
+ 1426       if src:sub(pos, pos) == ")" then return result, pos + 1 end
             local val
- 1037       val, pos = read(src, pos)
-  518       table.insert(result, val)
+ 1097       val, pos = read(src, pos)
+  548       table.insert(result, val)
           end
 
         -- string
-  454   elseif ch == '"' then
-  123     local s = ""
-  123     pos = pos + 1
- 1618     while pos <= #src do
- 1617       local c = src:sub(pos, pos)
- 1617       if c == "\\" then
+  480   elseif ch == '"' then
+  131     local s = ""
+  131     pos = pos + 1
+ 1725     while pos <= #src do
+ 1724       local c = src:sub(pos, pos)
+ 1724       if c == "\\" then
     3         pos = pos + 1
     6         s = s .. src:sub(pos, pos)
- 1614       elseif c == '"' then
-  122         return s, pos + 1
+ 1721       elseif c == '"' then
+  130         return s, pos + 1
             else
- 1492         s = s .. c
+ 1591         s = s .. c
             end
- 1495       pos = pos + 1
+ 1594       pos = pos + 1
           end
     1     error("unterminated string")
 
         -- keyword or symbol
-  331   elseif ch:match("[%a%d:%-_#%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~`]") then
-  329     local s = ""
- 5526     while pos <= #src and not src:sub(pos, pos):match("[%s%(%)\"']") do
- 4880       s = s .. src:sub(pos, pos)
- 2440       pos = pos + 1
+  349   elseif ch:match("[%a%d:%-_#%%%.%+%*%?%!%@%$%^%&%=%<%>%/%%|~`]") then
+  347     local s = ""
+ 5878     while pos <= #src and not src:sub(pos, pos):match("[%s%(%)\"']") do
+ 5196       s = s .. src:sub(pos, pos)
+ 2598       pos = pos + 1
           end
-  329     local upper = s:upper()
-  329     if upper == "NIL" then return nil, pos
-  308     elseif upper == "T" then return true, pos
-  245     elseif s:match("^%-?%d+$") then return tonumber(s), pos
-  154     else return s, pos  -- symbol or keyword as plain string
+  347     local upper = s:upper()
+  347     if upper == "NIL" then return nil, pos
+  326     elseif upper == "T" then return true, pos
+  257     elseif s:match("^%-?%d+$") then return tonumber(s), pos
+  162     else return s, pos  -- symbol or keyword as plain string
           end
 
         -- quote shorthand
@@ -1460,15 +1550,15 @@
       ---@param src string
       ---@return any
    24 function M.parse(src)
-  184   local ok, val = pcall(function()
-   92     local v, _ = read(src, 1)
-   89     return v
+  192   local ok, val = pcall(function()
+   96     local v, _ = read(src, 1)
+   93     return v
         end)
-   92   if not ok then
+   96   if not ok then
     3     vim.notify("swank.nvim: parse error: " .. tostring(val), vim.log.levels.ERROR)
     3     return nil
         end
-   89   return val
+   93   return val
       end
 
       -- ---------------------------------------------------------------------------
@@ -1478,33 +1568,33 @@
       ---@param val any
       ---@return string
    24 function M.serialize(val)
-  738   local t = type(val)
-  738   if val == nil then
+  789   local t = type(val)
+  789   if val == nil then
     1     return "nil"
-  737   elseif t == "boolean" then
-   99     return val and "t" or "nil"
-  638   elseif t == "number" then
-  107     return tostring(math.floor(val))
-  531   elseif t == "string" then
+  788   elseif t == "boolean" then
+  108     return val and "t" or "nil"
+  680   elseif t == "number" then
+  113     return tostring(math.floor(val))
+  567   elseif t == "string" then
           -- Only emit as an unquoted symbol when the string is:
           --   1. a keyword   — starts with ':'  e.g. :ok, :swank-repl
           --   2. package-qualified — contains ':' e.g. swank:eval-and-grab-output
           --   3. an explicit CL operator we embed literally (QUOTE)
           -- Everything else (package names, symbol strings passed as args) is quoted.
-  339     local is_symbol = val:match("^:[%a%d%-_%.]+$")        -- keyword
-  339       or val:match("^[^:]+:[%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#][%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#:]*$") -- pkg:sym
-  238       or val == "QUOTE"
-  339     if is_symbol then
-  184       return val
+  363     local is_symbol = val:match("^:[%a%d%-_%.]+$")        -- keyword
+  363       or val:match("^[^:]+:[%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#][%a%d%-_%+%*%?%!%@%$%^%&%=%<%>%/%%|~%.#:]*$") -- pkg:sym
+  256       or val == "QUOTE"
+  363     if is_symbol then
+  196       return val
           else
-  155       return '"' .. val:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'
+  167       return '"' .. val:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'
           end
-  192   elseif t == "table" then
-  191     local parts = {}
-  823     for _, v in ipairs(val) do
- 1160       table.insert(parts, M.serialize(v))
+  204   elseif t == "table" then
+  203     local parts = {}
+  880     for _, v in ipairs(val) do
+ 1244       table.insert(parts, M.serialize(v))
           end
-  191     return "(" .. table.concat(parts, " ") .. ")"
+  203     return "(" .. table.concat(parts, " ") .. ")"
         else
     1     error("cannot serialize type: " .. t)
         end
@@ -1527,11 +1617,11 @@
       --- Dispatch a parsed Swank message to the appropriate handler
       ---@param msg any  parsed s-expression (a list)
    24 function M.dispatch(msg)
-   48   if type(msg) ~= "table" or not msg[1] then return end
-   44   local event = tostring(msg[1]):upper()
-   44   local handler = handlers[event]
-   44   if handler then
-   86     handler(msg)
+   50   if type(msg) ~= "table" or not msg[1] then return end
+   46   local event = tostring(msg[1]):upper()
+   46   local handler = handlers[event]
+   46   if handler then
+   90     handler(msg)
         else
     1     vim.notify("swank.nvim: unhandled event: " .. event, vim.log.levels.DEBUG)
         end
@@ -1854,11 +1944,11 @@ Summary
 File                                                               Hits Missed Coverage
 ---------------------------------------------------------------------------------------
 /home/nexus/dev/personal/swank.nvim/lua/swank/blink_source.lua     57   0      100.00%
-/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua           626  0      100.00%
+/home/nexus/dev/personal/swank.nvim/lua/swank/client.lua           680  0      100.00%
 /home/nexus/dev/personal/swank.nvim/lua/swank/init.lua             39   0      100.00%
 /home/nexus/dev/personal/swank.nvim/lua/swank/protocol.lua         78   0      100.00%
 /home/nexus/dev/personal/swank.nvim/lua/swank/sources/blink.lua    47   0      100.00%
 /home/nexus/dev/personal/swank.nvim/lua/swank/sources/nvim_cmp.lua 61   0      100.00%
 /home/nexus/dev/personal/swank.nvim/lua/swank/transport.lua        51   0      100.00%
 ---------------------------------------------------------------------------------------
-Total                                                              959  0      100.00%
+Total                                                              1013 0      100.00%
