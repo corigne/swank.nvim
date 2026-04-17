@@ -86,9 +86,7 @@ That's it. Open a `.lisp` file in Neovim and swank.nvim handles the rest.
 To use a different implementation, set `autostart.implementation` in your config:
 
 ```lua
-require("swank").setup({
-  autostart = { implementation = "ccl" },  -- or "ecl", "abcl", "/usr/local/bin/sbcl", etc.
-})
+opts = { autostart = { implementation = "ccl" } }  -- or "ecl", "abcl", "/usr/local/bin/sbcl", etc.
 ```
 
 ### Advanced: connecting to an existing server
