@@ -111,6 +111,23 @@ describe("profiling operations", function()
     vim.notify = orig_notify
   end)
 
+  it("profile_report() :ok result opens expansion window with report content", function()
+    local opened = false
+    local orig_open = vim.api.nvim_open_win
+    vim.api.nvim_open_win = function(buf, enter, cfg)
+      opened = true
+      return orig_open(buf, enter, cfg)
+    end
+    local orig_rex = client.rex
+    client.rex = function(_form, cb)
+      cb({ ":ok", "MY-FUNC   100ms   50 calls" })
+    end
+    client.profile_report()
+    client.rex = orig_rex
+    vim.api.nvim_open_win = orig_open
+    assert.is_true(opened)
+  end)
+
   -- ── profile_reset() ───────────────────────────────────────────────────────
 
   it("profile_reset() sends swank:profile-reset", function()

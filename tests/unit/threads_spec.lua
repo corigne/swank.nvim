@@ -105,4 +105,74 @@ describe("thread management", function()
     client.rex = orig_rex
     vim.notify = orig_notify
   end)
+
+  it("list_threads() builds entries and calls vim.ui.select", function()
+    local select_called = false
+    local select_entries
+    local orig_select   = vim.ui.select
+    local orig_schedule = vim.schedule
+    vim.schedule = function(fn) fn() end  -- execute synchronously
+    vim.ui.select = function(entries, _opts, cb)
+      select_called  = true
+      select_entries = entries
+      cb(nil)  -- no selection
+    end
+
+    local orig_rex = client.rex
+    client.rex = function(_form, cb)
+      cb({ ":ok", { "labels", { "1", "main" }, { "2", "worker" } } })
+    end
+
+    client.list_threads()
+
+    client.rex      = orig_rex
+    vim.ui.select   = orig_select
+    vim.schedule    = orig_schedule
+
+    assert.is_true(select_called)
+    assert.equals(2, #select_entries)
+    assert.equals("1  main",   select_entries[1].label)
+    assert.equals("2  worker", select_entries[2].label)
+  end)
+
+  it("list_threads() kills selected thread when choice is made", function()
+    local killed_idx
+    local orig_kill     = client.kill_thread
+    local orig_rex      = client.rex
+    local orig_select   = vim.ui.select
+    local orig_schedule = vim.schedule
+
+    vim.schedule = function(fn) fn() end
+    vim.ui.select = function(entries, _opts, cb)
+      cb(entries[1])  -- select first thread
+    end
+    client.rex = function(_form, cb)
+      cb({ ":ok", { "labels", { "3", "main" } } })
+    end
+    client.kill_thread = function(n) killed_idx = n end
+
+    client.list_threads()
+
+    client.kill_thread = orig_kill
+    client.rex         = orig_rex
+    vim.ui.select      = orig_select
+    vim.schedule       = orig_schedule
+
+    assert.equals(3, killed_idx)
+  end)
+
+  it("list_threads() notifies info when thread list has no table rows", function()
+    local notified_level
+    local orig_notify = vim.notify
+    vim.notify = function(_m, l) notified_level = l end
+    local orig_rex = client.rex
+    -- data[2] is a non-table value → entries stays empty → INFO notify
+    client.rex = function(_form, cb)
+      cb({ ":ok", { "labels", "not-a-table-row" } })
+    end
+    client.list_threads()
+    assert.equals(vim.log.levels.INFO, notified_level)
+    client.rex = orig_rex
+    vim.notify = orig_notify
+  end)
 end)

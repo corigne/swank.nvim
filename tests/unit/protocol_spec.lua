@@ -82,6 +82,16 @@ describe("protocol.parse", function()
     -- parse() catches errors internally and returns nil
     assert.is_true(ok)  -- pcall should not see an error
   end)
+
+  it("returns nil for an unterminated string", function()
+    local result = protocol.parse('"unterminated')
+    assert.is_nil(result)
+  end)
+
+  it("returns nil for an unexpected character", function()
+    local result = protocol.parse("{bad}")
+    assert.is_nil(result)
+  end)
 end)
 
 describe("protocol.serialize", function()
@@ -147,6 +157,12 @@ describe("protocol.serialize", function()
     -- simply omitted, which Swank treats identically. We test with real values.
     assert.equals("(:emacs-rex (swank:connection-info) \"COMMON-LISP-USER\" t 1)",
       protocol.serialize({ ":emacs-rex", { "swank:connection-info" }, "COMMON-LISP-USER", true, 1 }))
+  end)
+
+  it("errors on unsupported types (e.g. function)", function()
+    assert.has_error(function()
+      protocol.serialize(function() end)
+    end)
   end)
 
   it("round-trips parse → serialize for typical RPC forms", function()

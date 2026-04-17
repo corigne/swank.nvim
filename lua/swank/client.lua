@@ -616,6 +616,12 @@ local function show_expansion(expanded, title)
   vim.bo[buf].filetype   = "lisp"
   vim.bo[buf].buftype    = "nofile"
   vim.bo[buf].modifiable = false
+  -- Wipe any stale buffer with the same name to avoid E95
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if b ~= buf and vim.api.nvim_buf_get_name(b) == "swank://macroexpand" then
+      pcall(vim.api.nvim_buf_delete, b, { force = true })
+    end
+  end
   vim.api.nvim_buf_set_name(buf, "swank://macroexpand")
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -763,7 +769,7 @@ function M.autodoc(force)
       local buf = vim.api.nvim_get_current_buf()
       local row, col = unpack(vim.api.nvim_win_get_cursor(0))
       fp:write(string.format("%s mode=%s buf=%d cursor=%d:%d\n", ts, mode, buf, row, col))
-      fp:write(debug.traceback(nil, 2) .. "\n\n")
+      fp:write((debug.traceback(nil, 2) or "") .. "\n\n")
       fp:close()
     end)
   end

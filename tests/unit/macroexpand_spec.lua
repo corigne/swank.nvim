@@ -32,6 +32,13 @@ describe("client macroexpand", function()
   after_each(function()
     client._test_reset()
     client._form_at_cursor = nil
+    -- Clean up any "swank://macroexpand" scratch buffer created by show_expansion
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      local ok, name = pcall(vim.api.nvim_buf_get_name, bufnr)
+      if ok and name:find("swank://macroexpand") then
+        pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
+      end
+    end
   end)
 
   -- ── macroexpand_1 ─────────────────────────────────────────────────────────
@@ -113,6 +120,19 @@ describe("client macroexpand", function()
     assert.equals("swank:macroexpand-all", received_form[1])
     client.rex = orig_rex
   end)
+
+  it("macroexpand: calls show_expansion on :ok result", function()
+    local opened = false
+    local orig_open = vim.api.nvim_open_win
+    vim.api.nvim_open_win = function(buf, enter, cfg)
+      opened = true
+      return orig_open(buf, enter, cfg)
+    end
+    client.rex = function(_form, cb) cb({ ":ok", "(foo bar)" }) end
+    client.macroexpand()
+    vim.api.nvim_open_win = orig_open
+    assert.is_true(opened)
+  end)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -173,5 +193,99 @@ describe("M.disassemble", function()
     assert.is_true(notified)
     client.rex = orig_rex
     vim.notify = orig_notify
+  end)
+
+  it("calls show_expansion on :ok result", function()
+    local opened = false
+    local orig_open = vim.api.nvim_open_win
+    vim.api.nvim_open_win = function(buf, enter, cfg)
+      opened = true
+      return orig_open(buf, enter, cfg)
+    end
+    local orig_rex = client.rex
+    client.rex = function(_form, cb) cb({ ":ok", "disassembled code" }) end
+    client.disassemble("MY-FUNC")
+    vim.api.nvim_open_win = orig_open
+    client.rex = orig_rex
+    assert.is_true(opened)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- show_expansion (reached via macroexpand_1 on :ok result)
+-- ---------------------------------------------------------------------------
+
+describe("show_expansion via macroexpand_1", function()
+  local orig_rex
+
+  before_each(function()
+    local mock = {
+      send       = function() end,
+      disconnect = function() end,
+    }
+    client._test_inject(mock)
+    client._form_at_cursor = function() return "(when t (print 1))" end
+    orig_rex = client.rex
+  end)
+
+  after_each(function()
+    client._test_reset()
+    client._form_at_cursor = nil
+    client.rex = orig_rex
+  end)
+
+  it("notifies INFO when expansion result is empty", function()
+    local notified_level
+    local orig_notify = vim.notify
+    vim.notify = function(_m, l) notified_level = l end
+    client.rex = function(_form, cb) cb({ ":ok", "" }) end
+    client.macroexpand_1()
+    vim.notify = orig_notify
+    assert.equals(vim.log.levels.INFO, notified_level)
+  end)
+
+  it("opens a float window when expansion has content", function()
+    local opened = false
+    local orig_open = vim.api.nvim_open_win
+    vim.api.nvim_open_win = function(buf, enter, cfg)
+      opened = true
+      return orig_open(buf, enter, cfg)
+    end
+    client.rex = function(_form, cb)
+      cb({ ":ok", "(defun foo () nil)" })
+    end
+    client.macroexpand_1()
+    vim.api.nvim_open_win = orig_open
+    assert.is_true(opened)
+  end)
+
+  it("q keymap on expansion buffer closes the window when valid", function()
+    local created_buf
+    local orig_create_buf = vim.api.nvim_create_buf
+    local orig_open = vim.api.nvim_open_win
+    vim.api.nvim_create_buf = function(listed, scratch)
+      created_buf = orig_create_buf(listed, scratch)
+      return created_buf
+    end
+    vim.api.nvim_open_win = function(buf, enter, cfg)
+      return orig_open(buf, enter, cfg)
+    end
+    client.rex = function(_form, cb) cb({ ":ok", "(defun foo () nil)" }) end
+    client.macroexpand_1()
+    vim.api.nvim_create_buf = orig_create_buf
+    vim.api.nvim_open_win = orig_open
+
+    assert.is_not_nil(created_buf)
+    local keymaps = vim.api.nvim_buf_get_keymap(created_buf, "n")
+    local q_cb
+    for _, km in ipairs(keymaps) do
+      if km.lhs == "q" then q_cb = km.callback break end
+    end
+    assert.is_not_nil(q_cb)
+    -- Call the keymap handler — it calls nvim_win_is_valid and closes if valid
+    assert.has_no.errors(function() q_cb() end)
+    if vim.api.nvim_buf_is_valid(created_buf) then
+      vim.api.nvim_buf_delete(created_buf, { force = true })
+    end
   end)
 end)

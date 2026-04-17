@@ -80,4 +80,47 @@ describe("swank.attach()", function()
     vim.api.nvim_buf_delete(bufnr, { force = true })
     assert.is_false(started)
   end)
+
+  it("calls start_and_connect when autostart enabled and not connected", function()
+    local started = false
+    client.start_and_connect = function() started = true end
+    client.is_connected      = function() return false end
+    swank.setup({ autostart = { enabled = true } })
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    swank.attach(bufnr)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    assert.is_true(started)
+  end)
+end)
+
+describe("swank.setup() neoconf schema registration", function()
+  local orig_setup
+
+  before_each(function()
+    orig_setup = swank.setup
+  end)
+
+  after_each(function()
+    package.loaded["neoconf.plugins"] = nil
+    swank.setup = orig_setup
+  end)
+
+  it("registers schema when neoconf.plugins is available", function()
+    local registered = false
+    local fake_neoconf = {
+      register = function(opts)
+        if opts.name == "swank.nvim" then registered = true end
+      end,
+    }
+    package.loaded["neoconf.plugins"] = fake_neoconf
+    -- Also stub nvim_get_runtime_file to return a fake schema path
+    local orig_get_runtime = vim.api.nvim_get_runtime_file
+    vim.api.nvim_get_runtime_file = function(pat, _)
+      if pat:find("swank") then return { "/fake/schema/swank.nvim.json" } end
+      return orig_get_runtime(pat, _)
+    end
+    swank.setup({})
+    vim.api.nvim_get_runtime_file = orig_get_runtime
+    assert.is_true(registered)
+  end)
 end)

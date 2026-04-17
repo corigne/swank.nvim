@@ -157,6 +157,22 @@ describe("client._form_at_cursor_paren", function()
     end)
     assert.equals("(defun qux () ; this ) is a comment\n  :done)", form)
   end)
+
+  it("handles escape sequence inside string (backslash before quote)", function()
+    -- Buffer: (foo "bar\"baz") — the \" inside a string must not close in_str
+    local form = with_buf({ [[(foo "bar\"baz")]] }, 1, function()
+      return client._form_at_cursor_paren()
+    end)
+    assert.equals([[(foo "bar\"baz")]], form)
+  end)
+
+  it("returns partial form when parens are unclosed (bottom return path)", function()
+    local form = with_buf({ "(unclosed" }, 1, function()
+      return client._form_at_cursor_paren()
+    end)
+    -- No closing paren → falls off the loop → returns whatever was collected
+    assert.equals("(unclosed", form)
+  end)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -192,6 +208,15 @@ describe("client._innermost_operator", function()
       return client._innermost_operator()
     end)
     assert.equals("bar", op)
+  end)
+
+  it("tracks depth when cursor follows a closed nested call", function()
+    -- "(foo (bar) more)" — cursor on 'm' of 'more' (col 12, 1-indexed)
+    -- Scanning backwards: ' ', ')', 'r', 'a', 'b', '(' — hits depth++ at ')' and depth-- at '('
+    local op = with_line("(foo (bar) more)", 12, function()
+      return client._innermost_operator()
+    end)
+    assert.equals("foo", op)
   end)
 
   it("returns nil when cursor is not inside a call", function()
@@ -465,6 +490,23 @@ describe("M.eval_toplevel()", function()
     assert.equals(":emacs-rex", msg[1])
     assert.equals("swank:eval-and-grab-output", msg[2][1])
   end)
+
+  it("invokes show_result callback when :return fires", function()
+    local received
+    require("swank.ui.repl").show_result = function(r) received = r end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 0 })
+    client.eval_toplevel()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", "3" })
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    assert.is_not_nil(received)
+  end)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -495,6 +537,21 @@ describe("M.eval_region()", function()
     assert.equals(1, #sent)
     local msg = decode_last(sent)
     assert.equals("swank:eval-and-grab-output", msg[2][1])
+  end)
+
+  it("invokes show_result callback when :return fires", function()
+    local received
+    require("swank.ui.repl").show_result = function(r) received = r end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.fn.setpos("'<", { bufnr, 1, 1, 0 })
+    vim.fn.setpos("'>", { bufnr, 1, 7, 0 })
+    client.eval_region()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", "3" })
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    assert.is_not_nil(received)
   end)
 end)
 
@@ -668,6 +725,15 @@ describe("M.inspect_nth_part()", function()
     assert.equals("swank:inspect-nth-part", msg[2][1])
     assert.equals(3, msg[2][2])
   end)
+
+  it("invokes inspector.open callback when :return fires", function()
+    local received
+    require("swank.ui.inspector").open = function(r) received = r end
+    client.inspect_nth_part(3)
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", "result" })
+    assert.is_not_nil(received)
+  end)
 end)
 
 describe("M.inspector_pop()", function()
@@ -722,6 +788,15 @@ describe("M.inspector_reinspect()", function()
     client.inspector_reinspect()
     local msg = decode_last(sent)
     assert.equals("swank:inspector-reinspect", msg[2][1])
+  end)
+
+  it("invokes inspector.open callback when :return fires", function()
+    local received
+    require("swank.ui.inspector").open = function(r) received = r end
+    client.inspector_reinspect()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", "result" })
+    assert.is_not_nil(received)
   end)
 end)
 
@@ -894,6 +969,20 @@ describe("M.load_file()", function()
     assert.equals("swank:load-file", msg[2][1])
     restore_notify()
   end)
+
+  it("invokes show_result callback when :return fires", function()
+    local received
+    require("swank.ui.repl").show_result = function(r) received = r end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/fake/path/foo2.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.load_file()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", nil })
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    assert.is_not_nil(received)
+    restore_notify()
+  end)
 end)
 
 describe("M.compile_file()", function()
@@ -934,6 +1023,20 @@ describe("M.compile_file()", function()
     assert.equals("swank:compile-file-for-emacs", msg[2][1])
     restore_notify()
   end)
+
+  it("invokes notes.show callback when :return fires", function()
+    local received
+    require("swank.ui.notes").show = function(r) received = r end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/fake/path/bar2.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_file()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", nil })
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    assert.is_not_nil(received)
+    restore_notify()
+  end)
 end)
 
 describe("M.compile_form()", function()
@@ -962,6 +1065,23 @@ describe("M.compile_form()", function()
     assert.equals(1, #sent)
     local msg = decode_last(sent)
     assert.equals("swank:compile-string-for-emacs", msg[2][1])
+  end)
+
+  it("invokes notes.show callback when :return fires", function()
+    local received
+    require("swank.ui.notes").show = function(r) received = r end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(defun foo () 42)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 1 })
+    client.compile_form()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", nil })
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    assert.is_not_nil(received)
   end)
 end)
 
@@ -1203,6 +1323,9 @@ end)
 
 describe("M._form_at_cursor()", function()
   it("without treesitter commonlisp parser: falls through to _form_at_cursor_paren", function()
+    -- Force treesitter parser lookup to fail so the paren fallback is reached
+    local orig_get_parser = vim.treesitter.get_parser
+    vim.treesitter.get_parser = function() error("no commonlisp parser") end
     local bufnr = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(defun foo () 42)" })
     local win = vim.api.nvim_open_win(bufnr, true, {
@@ -1212,6 +1335,7 @@ describe("M._form_at_cursor()", function()
     local form = client._form_at_cursor()
     vim.api.nvim_win_close(win, true)
     vim.api.nvim_buf_delete(bufnr, { force = true })
+    vim.treesitter.get_parser = orig_get_parser
     assert.equals("(defun foo () 42)", form)
   end)
 end)
@@ -1381,6 +1505,233 @@ describe("M.start_and_connect() impl_cli_flags", function()
     assert.is_not_nil(captured_argv)
     assert.equals("--quiet", captured_argv[2])
     assert.equals("--batch", captured_argv[3])
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- start_and_connect() — io.open failure (cannot write startup script)
+-- ---------------------------------------------------------------------------
+
+describe("M.start_and_connect() io.open failure", function()
+  local orig_jobstart, orig_notify, orig_io_open
+
+  before_each(function()
+    client._test_reset()
+    orig_jobstart = vim.fn.jobstart
+    orig_notify   = vim.notify
+    orig_io_open  = io.open
+
+    vim.fn.jobstart = function() return 1 end  -- stub: avoid real process
+    vim.notify      = function() end
+  end)
+
+  after_each(function()
+    vim.fn.jobstart = orig_jobstart
+    vim.notify      = orig_notify
+    io.open         = orig_io_open
+    client._test_reset()
+    require("swank").config = {}
+  end)
+
+  it("notifies ERROR and returns early when io.open fails for write", function()
+    local err_notified = false
+    vim.notify = function(msg, lvl)
+      if lvl == vim.log.levels.ERROR and msg:find("cannot write") then
+        err_notified = true
+      end
+    end
+    -- Force io.open to fail for "w" mode
+    io.open = function(path, mode)
+      if mode == "w" then return nil end
+      return orig_io_open(path, mode)
+    end
+    require("swank").config = {
+      autostart = { enabled = true, implementation = "sbcl" },
+      server    = { host = "127.0.0.1", port = 4005 },
+      contribs  = {},
+    }
+    client.start_and_connect()
+    assert.is_true(err_notified)
+    -- Should not have called jobstart (returned early)
+    assert.is_false(client.is_connected())
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- start_and_connect() — on_stderr and on_exit callbacks
+-- ---------------------------------------------------------------------------
+
+describe("M.start_and_connect() job callbacks", function()
+  local orig_jobstart, orig_notify, orig_io_open, orig_new_timer
+
+  local captured_on_stderr, captured_on_exit
+
+  before_each(function()
+    client._test_reset()
+    captured_on_stderr = nil
+    captured_on_exit   = nil
+
+    orig_jobstart  = vim.fn.jobstart
+    orig_notify    = vim.notify
+    orig_io_open   = io.open
+    orig_new_timer = vim.uv.new_timer
+
+    -- Stub io.open "w" mode to return a no-op file handle
+    io.open = function(path, mode)
+      if mode == "w" then
+        return { write = function() end, close = function() end }
+      end
+      return orig_io_open(path, mode)
+    end
+    -- Stub io.open "r" for port file (timer polls it)
+    -- Stub timer to be a no-op (prevents real async polling)
+    vim.uv.new_timer = function()
+      return {
+        start = function() end,
+        stop  = function() end,
+        close = function() end,
+      }
+    end
+    -- Capture job callbacks
+    vim.fn.jobstart = function(_argv, opts)
+      captured_on_stderr = opts.on_stderr
+      captured_on_exit   = opts.on_exit
+      return 1  -- valid job id
+    end
+    vim.notify = function() end
+
+    require("swank").config = {
+      autostart = { enabled = true, implementation = "sbcl" },
+      server    = { host = "127.0.0.1", port = 4005 },
+      contribs  = {},
+    }
+  end)
+
+  after_each(function()
+    vim.fn.jobstart  = orig_jobstart
+    vim.notify       = orig_notify
+    io.open          = orig_io_open
+    vim.uv.new_timer = orig_new_timer
+    client._test_reset()
+    require("swank").config = {}
+  end)
+
+  it("on_stderr accumulates non-empty lines", function()
+    client.start_and_connect()
+    assert.is_function(captured_on_stderr)
+    -- Should not error when called with data
+    assert.has_no.errors(function()
+      captured_on_stderr(nil, { "error line 1", "", "error line 2" })
+    end)
+  end)
+
+  it("on_exit notifies ERROR and resets state when not connected", function()
+    local err_notified = false
+    vim.notify = function(msg, lvl)
+      if lvl == vim.log.levels.ERROR then err_notified = true end
+    end
+    client.start_and_connect()
+    assert.is_function(captured_on_exit)
+    -- Fire on_exit while state is "connecting" (not connected)
+    captured_on_exit(nil, 1)
+    assert.is_true(err_notified)
+    assert.is_false(client.is_connected())
+  end)
+
+  it("on_exit does not notify ERROR when already connected", function()
+    local err_notified = false
+    vim.notify = function(msg, lvl)
+      if lvl == vim.log.levels.ERROR then err_notified = true end
+    end
+    client.start_and_connect()
+    assert.is_function(captured_on_exit)
+    -- Inject connected state after start_and_connect set "connecting"
+    local mock = { send = function() end, disconnect = function() end }
+    client._test_inject(mock)  -- sets connection_state = "connected"
+    captured_on_exit(nil, 0)
+    assert.is_false(err_notified)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- M.autodoc() — debug trace block and echo display
+-- ---------------------------------------------------------------------------
+
+describe("M.autodoc() debug trace and echo", function()
+  local mock, sent
+  local orig_io_open
+
+  before_each(function()
+    silence_notify()
+    mock_ui()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+    orig_io_open = io.open
+  end)
+
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+    io.open = orig_io_open
+    require("swank").config = {}
+  end)
+
+  it("writes debug trace when swank.config.debug is true", function()
+    require("swank").config = { debug = true }
+
+    local written = {}
+    io.open = function(path, mode)
+      if path:find("swank_autodoc_traces") and mode == "a" then
+        return {
+          write = function(_, s) table.insert(written, s) end,
+          close = function() end,
+        }
+      end
+      return orig_io_open(path, mode)
+    end
+
+    -- Need a real buffer+cursor so _innermost_operator works
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(mapcar #'1+ list)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 10 })
+
+    client.autodoc(true)
+
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+
+    -- At least one write should have occurred
+    assert.is_true(#written > 0)
+  end)
+
+  it("echoes arglist when silent_rex returns :ok", function()
+    local echoed
+    local orig_echo = vim.api.nvim_echo
+    vim.api.nvim_echo = function(chunks, _, _) echoed = chunks end
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(mapcar #'1+ list)" })
+    local win = vim.api.nvim_open_win(bufnr, true, {
+      relative = "editor", width = 40, height = 5, row = 0, col = 0, style = "minimal",
+    })
+    vim.api.nvim_win_set_cursor(win, { 1, 10 })
+
+    client.autodoc(true)
+
+    -- Fake the :return for the silent_rex request
+    local msg = decode_last(sent)
+    local id  = msg[5]
+    fake_return(id, { ":ok", "MAPCAR FUNCTION LIST" })
+
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    vim.api.nvim_echo = orig_echo
+
+    assert.is_not_nil(echoed)
+    assert.truthy(echoed[1][1]:find("mapcar"))
   end)
 end)
 

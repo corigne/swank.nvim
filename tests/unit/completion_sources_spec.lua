@@ -96,6 +96,37 @@ describe("blink_source get_completions", function()
     source:get_completions({}, function(r) result = r end)
     assert.same({}, result.items)
   end)
+
+  it("returns empty items when completion list is not a table", function()
+    -- payload[1] is a number, not a table → guard fires
+    client.rex = function(_form, cb)
+      cb({ ":ok", { 42, "prefix" } })
+    end
+    local result
+    local ctx = { line = "map", cursor = { 1, 3 } }
+    source:get_completions(ctx, function(r) result = r end)
+    assert.same({}, result.items)
+  end)
+end)
+
+describe("blink_source constructor and metadata", function()
+  local source
+
+  before_each(function()
+    source = require("swank.blink_source")
+  end)
+
+  it("new() returns a blink_source instance", function()
+    local instance = source.new()
+    assert.is_not_nil(instance)
+    assert.is_function(instance.get_completions)
+  end)
+
+  it("get_trigger_characters() returns a table", function()
+    local chars = source:get_trigger_characters()
+    assert.is_table(chars)
+    assert.is_true(#chars > 0)
+  end)
 end)
 
 describe("blink_source resolve", function()
@@ -156,6 +187,14 @@ describe("blink_source resolve", function()
     local item = { label = "mapcar" }
     local resolved
     source:resolve(item, function(r) resolved = r end)
+    assert.is_nil(resolved.documentation)
+  end)
+
+  it("passes item unchanged for non-symbol-like label (else branch)", function()
+    local item = { label = "not a symbol" }
+    local resolved
+    source:resolve(item, function(r) resolved = r end)
+    assert.equals(item, resolved)
     assert.is_nil(resolved.documentation)
   end)
 end)
@@ -269,9 +308,41 @@ describe("sources/blink resolve", function()
     source:resolve(item, function(r) resolved = r end)
     assert.equals(item, resolved)
   end)
+
+  it("passes item unchanged for non-symbol-like label (else branch)", function()
+    local item = { label = "not a symbol" }
+    local resolved
+    source:resolve(item, function(r) resolved = r end)
+    assert.equals(item, resolved)
+    assert.is_nil(resolved.documentation)
+  end)
 end)
 
--- ── sources/nvim_cmp ────────────────────────────────────────────────────────
+describe("sources/blink constructor and metadata", function()
+  before_each(function()
+    package.loaded["swank.sources.blink"] = nil
+    package.loaded["blink.cmp.types"] = { CompletionItemKind = { Function = 3 } }
+  end)
+
+  after_each(function()
+    package.loaded["swank.sources.blink"] = nil
+    package.loaded["blink.cmp.types"] = nil
+  end)
+
+  it("new() returns a source instance", function()
+    local src = require("swank.sources.blink")
+    local instance = src.new()
+    assert.is_not_nil(instance)
+    assert.is_function(instance.get_completions)
+  end)
+
+  it("get_trigger_characters() returns a table", function()
+    local src = require("swank.sources.blink")
+    local chars = src:get_trigger_characters()
+    assert.is_table(chars)
+    assert.is_true(#chars > 0)
+  end)
+end)
 
 describe("sources/nvim_cmp complete and resolve", function()
   local Source
@@ -356,5 +427,33 @@ describe("sources/nvim_cmp complete and resolve", function()
     local resolved
     Source:resolve(item, function(r) resolved = r end)
     assert.equals(item, resolved)
+  end)
+
+  it("resolve: passes item unchanged for non-symbol-like label (else branch)", function()
+    local item = { label = "not a symbol" }
+    local resolved
+    Source:resolve(item, function(r) resolved = r end)
+    assert.equals(item, resolved)
+    assert.is_nil(resolved.documentation)
+  end)
+
+  it("get_keyword_pattern() returns a non-empty string", function()
+    local pat = Source:get_keyword_pattern()
+    assert.is_string(pat)
+    assert.is_true(#pat > 0)
+  end)
+
+  it("complete: returns empty items for non-:ok result", function()
+    client.rex = function(_form, cb) cb({ ":error", "fail" }) end
+    local result
+    local params = { context = { cursor_before_line = "map" } }
+    Source:complete(params, function(r) result = r end)
+    assert.same({}, result.items)
+  end)
+
+  it("get_trigger_characters() returns a table", function()
+    local chars = Source:get_trigger_characters()
+    assert.is_table(chars)
+    assert.is_true(#chars > 0)
   end)
 end)
