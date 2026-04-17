@@ -1936,3 +1936,287 @@ describe("M.compile_file() silent mode", function()
   end)
 end)
 
+
+-- ---------------------------------------------------------------------------
+-- _last_expression_paren
+-- ---------------------------------------------------------------------------
+
+describe("client._last_expression_paren", function()
+  local function set_buf_cursor(lines, row, col)
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { row, col })
+    return bufnr
+  end
+
+  after_each(function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("returns a balanced list when cursor is on closing paren", function()
+    -- Line: "(+ 1 2)" — cursor at col 6 (0-indexed), which is ON ')'
+    local bufnr = set_buf_cursor({ "(+ 1 2)" }, 1, 6)
+    local result = client._last_expression_paren()
+    assert.equals("(+ 1 2)", result)
+  end)
+
+  it("returns an atom when cursor is on last char of a symbol", function()
+    -- Line: "foo" — cursor at col 2 (0-indexed), ON 'o'
+    local bufnr = set_buf_cursor({ "foo" }, 1, 2)
+    local result = client._last_expression_paren()
+    assert.equals("foo", result)
+  end)
+
+  it("returns an atom when cursor is on last char of a number", function()
+    local bufnr = set_buf_cursor({ "42" }, 1, 1)
+    local result = client._last_expression_paren()
+    assert.equals("42", result)
+  end)
+
+  it("returns nil for empty text", function()
+    local bufnr = set_buf_cursor({ "" }, 1, 0)
+    local result = client._last_expression_paren()
+    assert.is_nil(result)
+  end)
+
+  it("skips trailing whitespace to find previous expression", function()
+    -- "(foo)  " — cursor at col 5 (0-indexed), on first space after ')'; skips → ')'
+    local bufnr = set_buf_cursor({ "(foo)  " }, 1, 5)
+    local result = client._last_expression_paren()
+    assert.equals("(foo)", result)
+  end)
+
+  it("handles nested lists: cursor on outer closing paren returns full form", function()
+    -- "(foo (bar baz))" has 15 chars; cursor at col 14 (0-indexed) is ON last ')'
+    local bufnr = set_buf_cursor({ "(foo (bar baz))" }, 1, 14)
+    local result = client._last_expression_paren()
+    assert.equals("(foo (bar baz))", result)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- M.eval_last_expression
+-- ---------------------------------------------------------------------------
+
+describe("M.eval_last_expression", function()
+  local mock, sent
+
+  before_each(function()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+    silence_notify()
+    -- stub repl functions
+    require("swank.ui.repl").show_input = function() end
+    require("swank.ui.repl").show_result = function() end
+  end)
+
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("sends eval-and-grab-output with the expression before cursor", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 1, 7 })
+    client.eval_last_expression()
+    assert.is_true(#sent > 0)
+    local parsed = decode_last(sent)
+    assert.equals("swank:eval-and-grab-output", parsed[2][1])
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("warns and does not send when there is no expression before cursor", function()
+    local warned = false
+    local orig = vim.notify
+    vim.notify = function() warned = true end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "" })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    client.eval_last_expression()
+    vim.notify = orig
+    assert.is_true(warned)
+    assert.equals(0, #sent)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("increments user_pending while evaluation is in flight", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "foo" })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 1, 3 })
+    client.eval_last_expression()
+    assert.is_true(client.is_evaluating())
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- M.compile_and_load_file
+-- ---------------------------------------------------------------------------
+
+describe("M.compile_and_load_file", function()
+  local mock, sent
+
+  before_each(function()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+    silence_notify()
+    require("swank.ui.notes").show = function() end
+  end)
+
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("sends compile-file-for-emacs with load-flag = true", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/tmp/test.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_and_load_file()
+    local parsed = decode_last(sent)
+    -- form: { ":emacs-rex", { "swank:compile-file-for-emacs", path, true }, pkg, t, id }
+    assert.equals("swank:compile-file-for-emacs", parsed[2][1])
+    assert.equals("/tmp/test.lisp", parsed[2][2])
+    assert.is_true(parsed[2][3])
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("warns when buffer has no file path", function()
+    local warned = false
+    local orig = vim.notify
+    vim.notify = function() warned = true end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_and_load_file()
+    vim.notify = orig
+    assert.is_true(warned)
+    assert.equals(0, #sent)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("increments user_pending while compilation is in flight", function()
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/tmp/pendtest.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_and_load_file()
+    assert.is_true(client.is_evaluating())
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Coverage: _last_expression_paren unmatched paren (return nil at end)
+-- ---------------------------------------------------------------------------
+
+describe("client._last_expression_paren unmatched paren", function()
+  after_each(function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("returns nil when parens are unbalanced (missing open paren)", function()
+    -- Text ends with ")" but there is no matching "(", so the scan exhausts j
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "foo)" })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 1, 3 })
+    local result = client._last_expression_paren()
+    assert.is_nil(result)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Coverage: _last_expression treesitter fallback path
+-- ---------------------------------------------------------------------------
+
+describe("client._last_expression treesitter fallback", function()
+  after_each(function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+
+  it("falls back to paren scanner when treesitter parser fails", function()
+    local orig = vim.treesitter.get_parser
+    vim.treesitter.get_parser = function() error("no parser") end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "(+ 1 2)" })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 1, 6 })
+    local result = client._last_expression()
+    vim.treesitter.get_parser = orig
+    assert.equals("(+ 1 2)", result)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Coverage: eval_last_expression callback fires show_result
+-- ---------------------------------------------------------------------------
+
+describe("M.eval_last_expression callback coverage", function()
+  local mock, sent
+
+  before_each(function()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+    silence_notify()
+    require("swank.ui.repl").show_input = function() end
+  end)
+
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("callback calls show_result with returned value", function()
+    local got_result
+    require("swank.ui.repl").show_result = function(r) got_result = r end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "foo" })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 1, 2 })
+    client.eval_last_expression()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", "result-value" })
+    assert.is_not_nil(got_result)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Coverage: compile_and_load_file callback fires notes.show
+-- ---------------------------------------------------------------------------
+
+describe("M.compile_and_load_file callback coverage", function()
+  local mock, sent
+
+  before_each(function()
+    mock, sent = make_mock_transport()
+    client._test_inject(mock)
+    silence_notify()
+  end)
+
+  after_each(function()
+    client._test_reset()
+    restore_notify()
+  end)
+
+  it("callback calls notes.show with returned result", function()
+    local got_result
+    require("swank.ui.notes").show = function(r, _) got_result = r end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, "/tmp/covtest.lisp")
+    vim.api.nvim_set_current_buf(bufnr)
+    client.compile_and_load_file()
+    local id = decode_last(sent)[5]
+    fake_return(id, { ":ok", nil })
+    assert.is_not_nil(got_result)
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end)

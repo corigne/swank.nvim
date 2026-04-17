@@ -6,6 +6,7 @@
 
 | Page | Description |
 |------|-------------|
+| [Features](Features) | Full feature list and roadmap |
 | [Architecture](Architecture) | How the layers fit together; async model; event dispatch |
 | [Configuration](Configuration) | Full `setup()` option reference |
 | [Completions](Completions) | blink.cmp, nvim-cmp, and omnifunc setup |
@@ -48,21 +49,3 @@ automatically. The REPL appears as soon as the server is ready.
 
 To connect to an already-running Swank server instead (e.g. on a remote host),
 disable autostart and use `<Leader>lc` to connect manually.
-
----
-
-## Feature overview
-
-| Feature | Status |
-|---------|--------|
-| TCP transport | ✅ |
-| REPL (eval + output) | ✅ |
-| Completion (blink.cmp) | ✅ |
-| Autodoc / arglist | ✅ |
-| Describe symbol | ✅ (floating popup) |
-| Inspect object | ✅ |
-| Cross-reference (xref) | ✅ |
-| Find definition | ✅ |
-| Compiler notes (diagnostics) | ✅ |
-| Debugger (SLDB) | ✅ |
-| Trace dialog | ✅ |

@@ -5,63 +5,29 @@
 
 A modern, pure-Lua Common Lisp development environment for Neovim, built on the [Swank](https://github.com/slime/slime/blob/master/swank/backend.lisp) protocol.
 
-> **Status: active development.** Nearing a final release candidate. Testing and submission of issues is encouraged!
+> **Status: stable.** v1.0 release. Testing and issue submission welcome!
 
 ---
 
 ## Why?
 
-I wanted a first-class Common Lisp development experience in Neovim, without 
-the overhead of learning Emacs. While vlime is a solid plugin, it lacks some 
-Neovim-specific features expected in modern plugins. nvlime made great strides 
-toward this goal, but is no longer maintained and has some unresolved issues. 
-Rather than patching nvlime, I decided to build a new plugin from the ground up, 
-focusing on maintainability, testability, and modern Neovim conventions.
+I wanted a first-class Common Lisp development experience in Neovim without learning Emacs.
+The existing options are either limited by Vimscript or no longer maintained.
 
 | Plugin | Status | Notes |
 |---|---|---|
-| vlime | Active | clunky/limited by the nature of Vim and Vimscript |
-| nvlime | **Archived** | Maintainer quit Lisp, sometimes works, but has existing bugs |
-| conjure | Active | Multi-lang, but eval-only capability for CL |
-| sextant.nvim | Active | CL LSP server; swank.nvim works alongside it as a first-class companion |
- 
-This project is a ground-up rewrite targeting full SLIME feature parity using modern Neovim APIs, 
-leveraging testing and GitHub CI. It is designed to be a drop-in replacement for vlime/nvlime.
+| vlime | Active | Vimscript-based; limited Neovim integration |
+| nvlime | **Archived** | Good foundation, but unmaintained with unresolved bugs |
+| conjure | Active | Multi-language; eval-only for CL, no SLDB/inspector/xref |
+| sextant.nvim | Active | LSP-based CL frontend; targets features covered by the LSP spec |
 
-## Goals
+swank.nvim is a drop-in replacement for vlime/nvlime covering the full SLIME feature set:
+interactive REPL, eval (top-level, region, expression), SLDB debugger, object inspector,
+cross-reference, macro expansion, disassembly, tracing, profiling, thread management, and
+compiler diagnostics. It is LSP-compatible -- navigation and completion delegate to any attached
+LSP server, and Swank covers the features that fall outside the LSP spec.
 
-### 1.0
-
-- [x] Pure Lua; no Vimscript, Python or Fennel
-- [x] Neovim 0.10+ only
-- [x] `vim.uv` async TCP transport -> non-blocking
-- [x] `vim.ui.input` / `vim.ui.select` everywhere -> snacks.nvim and other plugin api hooks just work
-- [x] `vim.diagnostic` -> for compiler notes
-- [x] blink.cmp as a first-class completion source
-- [x] Self-contained; no helper plugin dependency
-- [x] REPL with optional pane/floating output buffer
-- [x] Eval: top-level form, region, interactive
-- [x] Completion via `swank:completions` / `swank:fuzzy-completions` — native blink.cmp and nvim-cmp sources with lazy `describe-symbol` documentation (automatically yield to LSP completions when an LSP is attached)
-- [x] Arglist autodoc (`CursorHoldI` → echo area)
-- [x] SLDB debugger; floating window, restart/frame/eval-in-frame
-- [x] Object inspector; navigable parts, back/reinspect
-- [x] Cross-reference (xref) -> by hooked picker or quickfix list / direct jump for single result
-- [x] Trace dialog (SWANK-TRACE-DIALOG)
-- [x] which-key integration
-- [x] Autostart: spawn a CL implementation + Quicklisp when `require("swank").attach()` is called
-- [x] Compiler notes -> `vim.diagnostic`
-- [x] Eval status notification while evaluation is in flight; interrupt running evaluation (`<Leader>eI`)
-- [x] Auto-compile on save (Swank fallback when no LSP attached) — surfaces compiler notes as diagnostics without loading code into the image
-
-### Stretch goals
-
-- [x] LSP-first navigation — `gd`, `K`, `gr`, `<C-k>` delegate to any attached LSP (e.g. Sextant); Swank fills the gap when no LSP is present
-- [ ] Optional first-class LSP support (NOTE: LSP would not be a replacement for SWANK, but could provide enhancements)
-- [ ] Integration with popularly used CL libraries (e.g. CIDER's nREPL middleware, SLIME contribs) for enhanced features
-- [ ] Integration with popular Neovim plugins (e.g. Telescope, Trouble, etc.) for enhanced UI/UX
-- [ ] Full support for more CL implementations where possible (e.g. CCL, ECL, ABCL, CLISP, Allegro CL)
-- [ ] Additional REPL features (e.g. input history, customizable prompt, etc.)
-- [ ] Better support for remote Swank servers (e.g. via SSH tunnels, Docker containers, etc.)
+See the [wiki](https://github.com/corigne/swank.nvim/wiki) for the full feature list and roadmap.
 
 ## Prerequisites
 
