@@ -38,12 +38,13 @@ function M.attach(bufnr, config)
   map("n", "lp", function() client.set_package_interactive() end, "Set package")
 
   -- ── Eval ─────────────────────────────────────────────────────────────────
-  map("n", "ee", function() client.eval_toplevel() end,      "Eval top-level form")
-  map("n", "ei", function() client.eval_interactive() end,   "Eval (prompt)")
-  map("v", "ee", function() client.eval_region() end,        "Eval region")
-  map("n", "em", function() client.macroexpand_1() end,      "Macroexpand-1 form at cursor")
-  map("n", "eM", function() client.macroexpand() end,        "Macroexpand-all form at cursor")
-  map("n", "eI", function() client.interrupt() end,          "Interrupt running evaluation")
+  map("n", "ee", function() client.eval_toplevel() end,         "Eval top-level form")
+  map("n", "el", function() client.eval_last_expression() end,  "Eval expression before cursor")
+  map("n", "ei", function() client.eval_interactive() end,      "Eval (prompt)")
+  map("v", "ee", function() client.eval_region() end,           "Eval region")
+  map("n", "em", function() client.macroexpand_1() end,         "Macroexpand-1 form at cursor")
+  map("n", "eM", function() client.macroexpand() end,           "Macroexpand-all form at cursor")
+  map("n", "eI", function() client.interrupt() end,             "Interrupt running evaluation")
 
   -- ── REPL ─────────────────────────────────────────────────────────────────
   map("n", "rw", function() require("swank.ui.repl").toggle() end, "Toggle REPL window")
@@ -145,10 +146,11 @@ function M.attach(bufnr, config)
   end, "Find definition of symbol at cursor")
 
   -- ── Compilation ──────────────────────────────────────────────────────────
-  map("n", "fl", function() client.load_file() end,     "Load file")
-  map("n", "fC", function() client.compile_file() end,  "Compile file")
-  map("n", "fs", function() client.compile_form() end,  "Compile form at cursor")
-  map("n", "fD", function() client.disassemble() end,   "Disassemble symbol at cursor")
+  map("n", "fl", function() client.load_file() end,              "Load file")
+  map("n", "fC", function() client.compile_file() end,           "Compile file")
+  map("n", "fk", function() client.compile_and_load_file() end,  "Compile and load file")
+  map("n", "fs", function() client.compile_form() end,           "Compile form at cursor")
+  map("n", "fD", function() client.disassemble() end,            "Disassemble symbol at cursor")
 
   -- ── Trace ─────────────────────────────────────────────────────────────────
   map("n", "tt", function()

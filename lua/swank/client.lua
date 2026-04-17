@@ -394,6 +394,19 @@ function M.eval_toplevel()
   end)
 end
 
+--- Eval the expression immediately before the cursor (SLIME's eval-last-expression)
+function M.eval_last_expression()
+  local form = M._last_expression()
+  if not form or form == "" then
+    vim.notify("swank.nvim: no expression before cursor", vim.log.levels.WARN)
+    return
+  end
+  require("swank.ui.repl").show_input(form)
+  user_rex({ "swank:eval-and-grab-output", form }, function(result)
+    require("swank.ui.repl").show_result(result)
+  end)
+end
+
 --- Eval visually selected region
 function M.eval_region()
   local lines = M._get_visual_selection()
@@ -627,6 +640,18 @@ function M.compile_file(silent)
   local rex_fn = silent and M.rex or user_rex
   rex_fn({ "swank:compile-file-for-emacs", path, false }, function(result)
     require("swank.ui.notes").show(result, path, silent)
+  end)
+end
+
+--- Compile and load the current file (equivalent to SLIME's C-c C-k)
+function M.compile_and_load_file()
+  local path = vim.api.nvim_buf_get_name(0)
+  if path == "" then
+    vim.notify("swank.nvim: buffer has no file path", vim.log.levels.WARN)
+    return
+  end
+  user_rex({ "swank:compile-file-for-emacs", path, true }, function(result)
+    require("swank.ui.notes").show(result, path)
   end)
 end
 
@@ -968,6 +993,71 @@ end
 -- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
+
+--- Get the expression immediately before (ending at) the cursor.
+--- Uses treesitter when available; falls back to paren scanning.
+---@return string|nil
+function M._last_expression()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "commonlisp")
+  if ok and parser then
+    local tree = parser:parse()[1]
+    if tree then
+      local root = tree:root()
+      local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+      row = row - 1
+      local check_col = math.max(0, col - 1)
+      local node = root:named_descendant_for_range(row, check_col, row, check_col)
+      if node then
+        return vim.treesitter.get_node_text(node, bufnr)
+      end
+    end
+  end
+  return M._last_expression_paren()
+end
+
+--- Bracket-aware backward-sexp scanner (fallback when treesitter unavailable).
+--- Finds the last balanced form or atom ending at the cursor.
+---@return string|nil
+function M._last_expression_paren()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  -- row is 1-indexed, col is 0-indexed byte offset.
+  -- Include the character under the cursor (col+1 in 1-indexed sub) so that
+  -- placing the cursor ON a closing paren captures the whole expression.
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, row, false)
+  lines[row] = lines[row]:sub(1, col + 1)
+  local text = table.concat(lines, "\n")
+
+  -- Skip trailing whitespace to land on the last character of the expression
+  local i = #text
+  while i > 0 and text:sub(i, i):match("%s") do i = i - 1 end
+  if i == 0 then return nil end
+
+  local c = text:sub(i, i)
+  if c == ")" then
+    -- Scan backward counting parens; ignores strings/comments (known limitation)
+    local depth = 0
+    local j = i
+    while j > 0 do
+      c = text:sub(j, j)
+      if c == ")" then depth = depth + 1
+      elseif c == "(" then
+        depth = depth - 1
+        if depth == 0 then return text:sub(j, i) end
+      end
+      j = j - 1
+    end
+  else
+    -- Atom: scan backward to the nearest delimiter
+    local j = i
+    while j > 1 and not text:sub(j - 1, j - 1):match('[%s%(%)%[%]",`;]') do
+      j = j - 1
+    end
+    return text:sub(j, i)
+  end
+  return nil
+end
 
 --- Get the top-level form containing the cursor (treesitter → paren fallback)
 function M._form_at_cursor()
